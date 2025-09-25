@@ -1,5 +1,6 @@
-# CodeStar Connection for GitHub integration (v2)
+# CodeStar Connection for GitHub integration (v2) - Only for primary backend
 resource "aws_codestarconnections_connection" "github" {
+  count         = var.backend_name == "backend" ? 1 : 0  # Create only for primary backend
   name          = "${var.namespace}-${var.environment}-github-connection"
   provider_type = "GitHub"
 
@@ -8,9 +9,20 @@ resource "aws_codestarconnections_connection" "github" {
   })
 }
 
-# ECR Repository for Docker images
+# Data source to get existing CodeStar connection for secondary backends
+data "aws_codestarconnections_connection" "existing" {
+  count = var.backend_name != "backend" ? 1 : 0
+  name  = "${var.namespace}-${var.environment}-github-connection"
+}
+
+# Local value to determine which connection to use
+locals {
+  connection_arn = var.backend_name == "backend" ? aws_codestarconnections_connection.github[0].arn : data.aws_codestarconnections_connection.existing[0].arn
+}
+
+# ECR Repository for Docker images - Unique per backend
 resource "aws_ecr_repository" "backend" {
-  name                 = "${var.namespace}-${var.environment}-backend"
+  name                 = "${var.namespace}-${var.environment}-${var.backend_name}"
   image_tag_mutability = "MUTABLE"
   force_delete        = true
   
@@ -19,7 +31,7 @@ resource "aws_ecr_repository" "backend" {
   }
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-backend-ecr"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-ecr"
   })
 }
 
@@ -62,16 +74,16 @@ resource "aws_ecr_lifecycle_policy" "backend" {
 # CodeDeploy application
 resource "aws_codedeploy_app" "backend" {
   compute_platform = "Server"
-  name             = "${var.namespace}-${var.environment}-backend"
+  name             = "${var.namespace}-${var.environment}-${var.backend_name}"
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-backend-app"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-app"
   })
 }
 
-# IAM role for CodeDeploy
+# IAM role for CodeDeploy - Unique per backend to avoid conflicts
 resource "aws_iam_role" "codedeploy_role" {
-  name = "${var.namespace}-${var.environment}-codedeploy-role"
+  name = "${var.namespace}-${var.environment}-${var.backend_name}-codedeploy-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -87,7 +99,7 @@ resource "aws_iam_role" "codedeploy_role" {
   })
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-codedeploy-role"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-codedeploy-role"
   })
 }
 
@@ -100,13 +112,13 @@ resource "aws_iam_role_policy_attachment" "codedeploy_policy" {
 # CodeDeploy deployment group
 resource "aws_codedeploy_deployment_group" "backend" {
   app_name              = aws_codedeploy_app.backend.name
-  deployment_group_name = "${var.namespace}-${var.environment}-backend-deployment-group"
+  deployment_group_name = "${var.namespace}-${var.environment}-${var.backend_name}-deployment-group"
   service_role_arn      = aws_iam_role.codedeploy_role.arn
 
   ec2_tag_filter {
     key   = "Name"
     type  = "KEY_AND_VALUE"
-    value = "${var.namespace}-${var.environment}-backend"
+    value = "${var.namespace}-${var.environment}-backend"  # All backends target the same EC2 instance
   }
 
   deployment_config_name = "CodeDeployDefault.AllAtOnce"
@@ -117,17 +129,17 @@ resource "aws_codedeploy_deployment_group" "backend" {
   }
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-backend-deployment-group"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-deployment-group"
   })
 }
 
-# S3 bucket for CodePipeline artifacts
+# S3 bucket for CodePipeline artifacts - Unique per backend to avoid conflicts
 resource "aws_s3_bucket" "codepipeline_artifacts" {
-  bucket = "${var.namespace}-${var.environment}-codepipeline-artifacts-${random_string.bucket_suffix.result}"
+  bucket = "${var.namespace}-${var.environment}-${var.backend_name}-artifacts-${random_string.bucket_suffix.result}"
   force_destroy = true
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-codepipeline-artifacts"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-codepipeline-artifacts"
   })
 }
 
@@ -189,9 +201,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "codepipeline_artifacts" {
   }
 }
 
-# IAM role for CodeBuild
+# IAM role for CodeBuild - Unique per backend
 resource "aws_iam_role" "codebuild_role" {
-  name = "${var.namespace}-${var.environment}-codebuild-role"
+  name = "${var.namespace}-${var.environment}-${var.backend_name}-codebuild-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -207,13 +219,13 @@ resource "aws_iam_role" "codebuild_role" {
   })
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-codebuild-role"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-codebuild-role"
   })
 }
 
-# IAM policy for CodeBuild
+# IAM policy for CodeBuild - Unique per backend
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.namespace}-${var.environment}-codebuild-policy"
+  name = "${var.namespace}-${var.environment}-${var.backend_name}-codebuild-policy"
   role = aws_iam_role.codebuild_role.id
 
   policy = jsonencode({
@@ -262,8 +274,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
 
 # CodeBuild project
 resource "aws_codebuild_project" "backend" {
-  name          = "${var.namespace}-${var.environment}-backend-build"
-  description   = "Build project for ${var.namespace} backend"
+  name          = "${var.namespace}-${var.environment}-${var.backend_name}-build"
+  description   = "Build project for ${var.namespace} ${var.backend_name}"
   service_role  = aws_iam_role.codebuild_role.arn
 
   artifacts {
@@ -306,6 +318,15 @@ resource "aws_codebuild_project" "backend" {
       name  = "ENVIRONMENT"
       value = var.environment
     }
+    environment_variable {
+      name  = "BACKEND_NAME"
+      value = var.backend_name
+    }
+
+    environment_variable {
+      name  = "APPLICATION_PORT"
+      value = tostring(var.application_port)
+    }
   }
 
   source {
@@ -314,13 +335,13 @@ resource "aws_codebuild_project" "backend" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.namespace}-${var.environment}-backend-build"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-build"
   })
 }
 
-# IAM role for CodePipeline
+# IAM role for CodePipeline - Unique per backend
 resource "aws_iam_role" "codepipeline_role" {
-  name = "${var.namespace}-${var.environment}-codepipeline-role"
+  name = "${var.namespace}-${var.environment}-${var.backend_name}-codepipeline-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -336,13 +357,13 @@ resource "aws_iam_role" "codepipeline_role" {
   })
 
   tags = merge(var.tags, {
-    Name = "${var.namespace}-${var.environment}-codepipeline-role"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-codepipeline-role"
   })
 }
 
-# IAM policy for CodePipeline
+# IAM policy for CodePipeline - Unique per backend
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "${var.namespace}-${var.environment}-codepipeline-policy"
+  name = "${var.namespace}-${var.environment}-${var.backend_name}-codepipeline-policy"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
@@ -387,15 +408,15 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Action = [
           "codestar-connections:UseConnection"
         ]
-        Resource = aws_codestarconnections_connection.github.arn
+        Resource = local.connection_arn
       }
     ]
   })
 }
 
-# CodePipeline
+# CodePipeline - Unique per backend
 resource "aws_codepipeline" "backend" {
-  name     = "${var.namespace}-${var.environment}-backend-pipeline"
+  name     = "${var.namespace}-${var.environment}-${var.backend_name}-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
 
   artifact_store {
@@ -415,7 +436,7 @@ resource "aws_codepipeline" "backend" {
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
+        ConnectionArn    = local.connection_arn
         FullRepositoryId = "${var.github_owner}/${var.github_repo}"
         BranchName       = var.github_branch
       }
@@ -459,6 +480,6 @@ resource "aws_codepipeline" "backend" {
   }
 
   tags = merge(local.tags, {
-    Name = "${var.namespace}-${var.environment}-backend-pipeline"
+    Name = "${var.namespace}-${var.environment}-${var.backend_name}-pipeline"
   })
 }

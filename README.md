@@ -128,28 +128,65 @@ This infrastructure setup provides a complete, production-ready foundation for m
 
 ## Multi-Backend Implementation Details
 
-### Architecture Overview
-The infrastructure uses a **shared resource model** where:
-- One main module (`shared_infrastructure`) creates all core AWS resources (VPC, EC2, RDS, S3, etc.)
-- Additional CI/CD modules create separate deployment pipelines for each backend
-- All backends deploy to the same EC2 instance but maintain independent deployment processes
+### Enhanced Architecture Overview
+The infrastructure uses an **improved shared resource model** with **parameterized modules** to prevent resource duplication conflicts:
+
+- **Shared Infrastructure Module**: Creates all core AWS resources (VPC, EC2, RDS, S3, networking) once
+- **Parameterized CI/CD Modules**: Create separate deployment pipelines for each backend with unique identifiers
+- **Single EC2 Instance**: All Docker containers deploy to the same `t3.micro` instance
+- **No Resource Conflicts**: Each backend uses unique naming (`backend_name` parameter) to prevent "already exists" errors
+- **Independent Deployments**: Each backend maintains separate CodePipeline, ECR, and deployment processes
 
 ### Current Backends
 - **Primary Backend** (Django): Main web application
   - Repository: `sabeel-it-consulting/geoinvestinsights-backend`
   - Container: Runs on port 8000
+  - Backend Name: `backend`
   - Purpose: Full-stack Django application with admin interface
   - CI/CD: Integrated with shared infrastructure module
 
-- **geo_secondback** (Flask): Reports API service
+- **Secondary Backend** (Flask): Reports API service  
   - Repository: `sabeel-it-consulting/geoinvestinsights-secondback`
   - Container: Runs on port 5000
+  - Backend Name: `secondback`
   - Purpose: Flask API service for generating reports (`RapportRest.py`)
-  - CI/CD: Separate pipeline module (`geo_secondback_cicd`)
+  - CI/CD: Separate parameterized pipeline module
+
+### Key Parameterization Features
+- **`backend_name`**: Unique identifier prevents resource naming conflicts
+- **`application_port`**: Allows different ports per backend (8000, 5000, 3000, etc.)
+- **`codestar_connection_arn`**: Reuses GitHub connection across all backends
+- **Per-Backend Resources**: ECR repositories, CodePipelines, and S3 artifacts buckets are unique per backend
+- **Shared Resources**: VPC, EC2, RDS, security groups, and networking are created once and reused
+
+### Adding New Backends
+To add additional backends without conflicts:
+
+```hcl
+module "geo_[name]_cicd" {
+  source               = "../../../modules/cicd"
+  environment          = "dev"
+  namespace            = "geo"
+  backend_name         = "[unique-name]"        # Prevents naming conflicts
+  application_port     = [unique-port]          # e.g., 8080, 3000, 5001
+  
+  github_repo          = "[repository-name]"
+  github_owner         = "sabeel-it-consulting"
+  github_branch        = "main"
+
+  # Reuse shared resources - no duplication
+  backend_instance_id     = module.shared_infrastructure.backend_instance_id
+  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
+
+  tags = {
+    namespace = "geo"
+    backend   = "[name]"
+  }
+}
+```
 
 ### Infrastructure Sharing Model
-- **Shared Infrastructure Module**: Creates EC2, VPC, RDS, S3, networking, and primary CI/CD pipeline
-- **Additional CI/CD Modules**: Create separate CodePipeline, CodeBuild, and ECR for each additional backend
-- **Single EC2 Instance**: All Docker containers deploy to the same `t3.micro` instance
-- **Resource Optimization**: No duplicate infrastructure resources (keys, subnets, security groups, etc.)
-- **Independent Deployments**: Each backend can be deployed independently while sharing the same target environment
+- **Shared Resources** (created once): EC2, VPC, RDS, S3, security groups, networking, CodeStar connection
+- **Per-Backend Resources** (created per backend): ECR repository, CodePipeline, CodeBuild, CodeDeploy application, S3 artifacts bucket
+- **Resource Isolation**: Each backend has unique CI/CD pipeline while sharing target infrastructure
+- **Cost Optimization**: Maximum resource sharing while maintaining deployment independence

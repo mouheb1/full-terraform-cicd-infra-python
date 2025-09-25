@@ -24,6 +24,24 @@ variable "github_branch" {
   default     = "develop"
 }
 
+variable "backend_name" {
+  description = "Name identifier for the backend (used to differentiate multiple backends)"
+  type        = string
+  default     = "backend"
+}
+
+variable "application_port" {
+  description = "Port on which the application runs (e.g., 8000 for Django, 5000 for Flask)"
+  type        = number
+  default     = 8000
+}
+
+variable "codestar_connection_arn" {
+  description = "ARN of the existing CodeStar connection (leave empty for primary backend)"
+  type        = string
+  default     = ""
+}
+
 # Note: github_token is no longer needed with CodeStar Connection (GitHub v2)
 # Keeping this commented for backwards compatibility
 # variable "github_token" {

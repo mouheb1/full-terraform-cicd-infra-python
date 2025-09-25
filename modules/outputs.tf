@@ -43,6 +43,11 @@ output "codebuild_project_name" {
   value       = module.cicd.codebuild_project_name
 }
 
+output "codestar_connection_arn" {
+  description = "ARN of the CodeStar Connection for GitHub"
+  value       = module.cicd.codestar_connection_arn
+}
+
 # Database outputs
 output "database_endpoint" {
   description = "Database endpoint"

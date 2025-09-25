@@ -36,6 +36,9 @@ module "cicd" {
   source        = "./cicd"
   environment   = var.environment
   namespace     = var.namespace
+  backend_name  = "backend"  # Primary backend identifier
+  application_port = 8000    # Django runs on port 8000
+  
   github_owner  = var.github_owner
   github_repo   = var.github_repo
   github_branch = var.github_branch
