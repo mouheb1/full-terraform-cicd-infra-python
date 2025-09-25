@@ -49,10 +49,10 @@ resource "aws_security_group" "backend_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow application port (3000 for NestJS)
+  # Allow application port (8000 for Django)
   ingress {
-    from_port   = 3000
-    to_port     = 3000
+    from_port   = 8000
+    to_port     = 8000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -156,19 +156,17 @@ resource "aws_iam_role_policy_attachment" "s3_access" {
 # User data script for EC2 instance
 locals {
   user_data = templatefile("${path.module}/user_data.sh", {
-    region                        = data.aws_region.current.id
-    namespace                     = var.namespace
-    environment                   = var.environment
-    node_env                      = var.node_env
-    db_host                       = split(":", var.db_host)[0]
-    db_port                       = var.db_port
-    db_name                       = var.db_name
-    db_user                       = var.db_user
-    db_password                   = var.db_password
-    ssh_public_key                = tls_private_key.backend_ssh.public_key_openssh
-    jwt_private_key               = var.jwt_private_key
-    jwt_public_key                = var.jwt_public_key
-    jwt_refresh_token_private_key = var.jwt_refresh_token_private_key
+    region            = data.aws_region.current.id
+    namespace         = var.namespace
+    environment       = var.environment
+    python_env        = var.python_env
+    db_host           = split(":", var.db_host)[0]
+    db_port           = var.db_port
+    db_name           = var.db_name
+    db_user           = var.db_user
+    db_password       = var.db_password
+    ssh_public_key    = tls_private_key.backend_ssh.public_key_openssh
+    django_secret_key = var.django_secret_key
   })
 }
 

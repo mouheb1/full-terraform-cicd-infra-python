@@ -1,6 +1,9 @@
 #!/bin/bash
 yum update -y
 
+# Install Python 3.11 and pip
+yum install -y python3 python3-pip
+
 # Install Docker
 yum install -y docker
 systemctl start docker
@@ -44,20 +47,19 @@ chown -R ec2-user:ec2-user /home/ec2-user/.ssh
 
 # Create environment file for Docker container
 cat > /opt/app/.env << EOF
-NODE_ENV=${node_env}
-PORT=3000
+DJANGO_ENV=${python_env}
+DEBUG=false
+PORT=8000
 NAMESPACE=${namespace}
 ENVIRONMENT=${environment}
+DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
 DB_HOST=${db_host}
 DB_PORT=${db_port}
 DB_NAME=${db_name}
 DB_USER=${db_user}
 DB_PASSWORD=${db_password}
-DB_SSL=true
-DB_SSL_REJECT_UNAUTHORIZED=false
-JWT_PRIVATE_KEY=${jwt_private_key}
-JWT_PUBLIC_KEY=${jwt_public_key}
-JWT_REFRESH_TOKEN_PRIVATE_KEY=${jwt_refresh_token_private_key}
+SECRET_KEY=${django_secret_key}
+ALLOWED_HOSTS=*
 EOF
 
 echo "EC2 setup completed" > /var/log/user-data.log

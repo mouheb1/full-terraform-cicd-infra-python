@@ -10,7 +10,7 @@ module "network" {
 module "backend" {
   source            = "./backend"
   environment       = var.environment
-  node_env          = var.node_env
+  python_env        = var.python_env
   namespace         = var.namespace
   vpc_id            = module.network.vpc_id
   public_subnet_ids = module.network.public_subnet_ids
@@ -25,10 +25,8 @@ module "backend" {
   db_user     = var.db_username
   db_password = var.db_password
 
-  # JWT configuration variables
-  jwt_private_key               = var.jwt_private_key
-  jwt_public_key                = var.jwt_public_key
-  jwt_refresh_token_private_key = var.jwt_refresh_token_private_key
+  # Django configuration variables
+  django_secret_key = var.django_secret_key
 
   # S3 access policy
   s3_access_policy_arn = module.s3.s3_access_policy_arn
