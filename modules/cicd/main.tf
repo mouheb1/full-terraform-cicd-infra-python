@@ -1,6 +1,6 @@
 # CodeStar Connection for GitHub integration (v2) - Only for primary backend
 resource "aws_codestarconnections_connection" "github" {
-  count         = var.backend_name == "backend" ? 1 : 0  # Create only for primary backend
+  count         = var.codestar_connection_arn == "" ? 1 : 0  # Create only when no existing connection ARN provided
   name          = "${var.namespace}-${var.environment}-github-connection"
   provider_type = "GitHub"
 
@@ -9,17 +9,15 @@ resource "aws_codestarconnections_connection" "github" {
   })
 }
 
-# Data source to get existing CodeStar connection for secondary backends (only when ARN not provided)
+# Data source to get existing CodeStar connection for secondary backends
 data "aws_codestarconnections_connection" "existing" {
-  count = var.backend_name != "backend" && var.codestar_connection_arn == "" ? 1 : 0
+  count = var.codestar_connection_arn != "" ? 0 : 0  # Don't use data source if ARN provided
   name  = "${var.namespace}-${var.environment}-github-connection"
 }
 
 # Local value to determine which connection to use
 locals {
-  connection_arn = var.backend_name == "backend" ? aws_codestarconnections_connection.github[0].arn : (
-    var.codestar_connection_arn != "" ? var.codestar_connection_arn : data.aws_codestarconnections_connection.existing[0].arn
-  )
+  connection_arn = var.codestar_connection_arn != "" ? var.codestar_connection_arn : aws_codestarconnections_connection.github[0].arn
 }
 
 # ECR Repository for Docker images - Unique per backend

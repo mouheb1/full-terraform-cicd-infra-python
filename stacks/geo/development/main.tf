@@ -11,6 +11,9 @@ module "shared_infrastructure" {
   instance_type = "t3.micro"
   key_name      = null
 
+  # Backend configuration for primary backend
+  backend_name  = "geoinvestinsights-backend"  # Project-specific name for pipeline
+
   # GitHub configuration for primary backend
   github_owner  = "sabeel-it-consulting"
   github_repo   = "geoinvestinsights-backend"
@@ -35,8 +38,8 @@ module "geo_secondback_cicd" {
   source        = "../../../modules/cicd"
   environment   = "dev"
   namespace     = "geo"
-  backend_name  = "secondback"  # Unique identifier for this backend
-  application_port = 5000       # Flask runs on port 5000
+  backend_name  = "geoinvestinsights-secondback"  # Project-specific name for pipeline
+  application_port = 5000                          # Flask runs on port 5000
 
   github_owner  = "sabeel-it-consulting"
   github_repo   = "geoinvestinsights-secondback"
