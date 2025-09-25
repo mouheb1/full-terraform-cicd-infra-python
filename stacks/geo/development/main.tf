@@ -37,18 +37,19 @@ module "geo_secondback_cicd" {
   namespace     = "geo"
   backend_name  = "secondback"  # Unique identifier for this backend
   application_port = 5000       # Flask runs on port 5000
-  
+
   github_owner  = "sabeel-it-consulting"
   github_repo   = "geoinvestinsights-secondback"
   github_branch = "main"
 
-  # Use the same backend instance from shared infrastructure
-  backend_instance_id = module.shared_infrastructure.backend_instance_id
+  # Use the same backend instance and CodeStar connection from shared infrastructure
+  backend_instance_id     = module.shared_infrastructure.backend_instance_id
+  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
 
   tags = {
     namespace = "geo"
   }
-  
+
   # Ensure shared infrastructure (including CodeStar connection) is created first
   depends_on = [module.shared_infrastructure]
 }

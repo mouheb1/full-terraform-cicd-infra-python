@@ -20,7 +20,7 @@ output "codebuild_project_name" {
 
 output "codestar_connection_arn" {
   description = "ARN of the CodeStar Connection for GitHub"
-  value       = var.backend_name == "backend" ? aws_codestarconnections_connection.github[0].arn : data.aws_codestarconnections_connection.existing[0].arn
+  value       = local.connection_arn
 }
 
 output "codedeploy_application_name" {
