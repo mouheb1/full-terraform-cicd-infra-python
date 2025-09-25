@@ -1,5 +1,6 @@
 
-module "geo_environment" {
+# Shared infrastructure (network, EC2, database, S3)
+module "shared_infrastructure" {
   source        = "../../../modules"
   environment   = "dev"
   python_env    = "development"
@@ -10,7 +11,7 @@ module "geo_environment" {
   instance_type = "t3.micro"
   key_name      = null
 
-  # GitHub configuration
+  # GitHub configuration for primary backend
   github_owner  = "sabeel-it-consulting"
   github_repo   = "geoinvestinsights-backend"
   github_branch = "main"
@@ -24,6 +25,23 @@ module "geo_environment" {
 
   profile = "geo"
   region  = "eu-west-3"
+  tags = {
+    namespace = "geo"
+  }
+}
+
+# Additional CI/CD pipeline for second backend
+module "geo_secondback_cicd" {
+  source        = "../../../modules/cicd"
+  environment   = "dev"
+  namespace     = "geo"
+  github_owner  = "sabeel-it-consulting"
+  github_repo   = "geoinvestinsights-secondback"
+  github_branch = "main"
+
+  # Use the same backend instance from shared infrastructure
+  backend_instance_id = module.shared_infrastructure.backend_instance_id
+
   tags = {
     namespace = "geo"
   }

@@ -51,6 +51,12 @@ variable "github_repo" {
   type        = string
 }
 
+variable "second_github_repo" {
+  description = "Second backend GitHub repository name"
+  type        = string
+  default     = ""
+}
+
 variable "github_branch" {
   description = "GitHub branch to monitor for changes"
   type        = string

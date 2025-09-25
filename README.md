@@ -1,20 +1,21 @@
 # Geo Terraform Infrastructure
 
-This repository contains the complete AWS infrastructure setup for the **GeoInvestInsights** project, a cost-optimized cloud architecture for hosting Django Python applications with PostgreSQL database and media storage capabilities.
+This repository contains the complete AWS infrastructure setup for the **GeoInvestInsights** project, a cost-optimized cloud architecture for hosting multiple Python applications (Django + Flask backends) with PostgreSQL database and media storage capabilities.
 
 ## Infrastructure Overview
 
-The infrastructure is designed for a 3-tier architecture pattern with focus on cost optimization while maintaining security and scalability.
+The infrastructure is designed for a multi-backend 3-tier architecture pattern with focus on cost optimization while maintaining security and scalability. Multiple dockerized Python backends share the same EC2 instance while maintaining separate CI/CD pipelines.
 
 ## AWS Services Used
 
 ### Core Compute Services
 - **EC2 Instance** (`t3.micro`)
   - Amazon Linux 2 AMI
-  - Auto-configured for Django Python application deployment
+  - Auto-configured for multiple dockerized Python applications (Django + Flask)
   - Includes CodeDeploy agent for automated deployments
-  - Security groups configured for HTTP/HTTPS (80, 443), SSH (22), and application port (8000)
+  - Security groups configured for HTTP/HTTPS (80, 443), SSH (22), and application ports (8000, 5000)
   - IAM role with ECR, S3, and CloudWatch Logs permissions
+  - Supports multiple Docker containers on the same instance
 
 ### Networking Infrastructure
 - **VPC** (Virtual Private Cloud)
@@ -46,14 +47,17 @@ The infrastructure is designed for a 3-tier architecture pattern with focus on c
   - **VPC Gateway Endpoint** for S3 (eliminates data transfer costs)
 
 ### CI/CD Pipeline
-- **CodePipeline**
+- **Multiple CodePipelines** (one per backend)
   - 3-stage pipeline: Source → Build → Deploy
   - **CodeStar Connection** for GitHub integration
   - **CodeBuild** project with `BUILD_GENERAL1_SMALL` compute type
   - **CodeDeploy** application for EC2 deployment
-  - **ECR Repository** for Docker container images
+  - **ECR Repository** for Docker container images (separate repo per backend)
   - Lifecycle policies to cleanup old images (keep last 3 tagged, delete untagged after 1 day)
   - S3 artifact storage with automatic cleanup (7-day expiration)
+  - **Backend Pipelines**:
+    - `Primary Backend`: Django application (geoinvestinsights-backend) - integrated with shared infrastructure
+    - `geo_secondback`: Flask application (geoinvestinsights-secondback) - separate CI/CD module
 
 ### Security & Access Management
 - **IAM Roles & Policies**
@@ -79,30 +83,36 @@ The infrastructure is designed for a 3-tier architecture pattern with focus on c
 
 ## Environment Configuration
 
-### Development Environment (`serbini/development/`)
+### Development Environment (`geo/development/`)
 - **Region**: `eu-west-3` (Paris)
 - **VPC CIDR**: `10.0.0.0/16`
 - **Instance Type**: `t3.micro`
-- **Database**: `serbini_dev` with development settings
-- **GitHub Repository**: `mouheb1/geoinvestinsights-backend`
+- **Database**: `geo_dev` with development settings
+- **GitHub Repositories**:
+  - `sabeel-it-consulting/geoinvestinsights-backend` (Django backend)
+  - `sabeel-it-consulting/geoinvestinsights-secondback` (Flask backend)
 - **Branch**: `main`
 
 ### Application Configuration
 - **Python Environment**: `development`
-- **Application Port**: `8000` (Django default)
-- **Database Connection**: Via environment variables
+- **Backend Applications**:
+  - **Primary Backend** (Django): Port `8000`, full-stack web application
+  - **geo_secondback** (Flask): Port `5000`, API service for reports
+- **Database Connection**: Via environment variables (shared between backends)
 - **Django Configuration**: Secret key and security settings
-- **S3 Integration**: For media file storage and retrieval
+- **S3 Integration**: For media file storage and retrieval (shared across backends)
 
 ## Key Features
 
-1. **Automated Deployment**: Complete CI/CD pipeline from GitHub to EC2
-2. **Database Connectivity**: SSH tunnel support for secure database access
-3. **Media Storage**: S3 + CloudFront for optimized media delivery
-4. **Security**: VPC isolation, security groups, IAM roles
-5. **Cost-Optimized**: Minimal resource allocation suitable for development/small production
-6. **Monitoring**: CloudWatch integration for logs and metrics
-7. **SSL/TLS**: HTTPS support with security group configurations
+1. **Multi-Backend Architecture**: Support for multiple dockerized Python applications on single EC2 instance
+2. **Automated Deployment**: Separate CI/CD pipelines for each backend from GitHub to EC2
+3. **Database Connectivity**: SSH tunnel support for secure database access (shared across backends)
+4. **Media Storage**: S3 + CloudFront for optimized media delivery (shared across backends)
+5. **Security**: VPC isolation, security groups, IAM roles
+6. **Cost-Optimized**: Multiple applications sharing infrastructure for maximum cost efficiency
+7. **Container Orchestration**: Docker-based deployment with separate ECR repositories
+8. **Monitoring**: CloudWatch integration for logs and metrics across all backends
+9. **SSL/TLS**: HTTPS support with security group configurations
 
 ## Infrastructure Outputs
 
@@ -114,4 +124,32 @@ The infrastructure provides the following key outputs:
 - ECR repository URL for container images
 - CodePipeline name for CI/CD monitoring
 
-This infrastructure setup provides a complete, production-ready foundation for Django Python applications with PostgreSQL backend and media storage capabilities, optimized for cost-effectiveness while maintaining security best practices.
+This infrastructure setup provides a complete, production-ready foundation for multiple Python applications (Django + Flask) with PostgreSQL backend and media storage capabilities, optimized for cost-effectiveness while maintaining security best practices and supporting multi-backend deployments on shared infrastructure.
+
+## Multi-Backend Implementation Details
+
+### Architecture Overview
+The infrastructure uses a **shared resource model** where:
+- One main module (`shared_infrastructure`) creates all core AWS resources (VPC, EC2, RDS, S3, etc.)
+- Additional CI/CD modules create separate deployment pipelines for each backend
+- All backends deploy to the same EC2 instance but maintain independent deployment processes
+
+### Current Backends
+- **Primary Backend** (Django): Main web application
+  - Repository: `sabeel-it-consulting/geoinvestinsights-backend`
+  - Container: Runs on port 8000
+  - Purpose: Full-stack Django application with admin interface
+  - CI/CD: Integrated with shared infrastructure module
+
+- **geo_secondback** (Flask): Reports API service
+  - Repository: `sabeel-it-consulting/geoinvestinsights-secondback`
+  - Container: Runs on port 5000
+  - Purpose: Flask API service for generating reports (`RapportRest.py`)
+  - CI/CD: Separate pipeline module (`geo_secondback_cicd`)
+
+### Infrastructure Sharing Model
+- **Shared Infrastructure Module**: Creates EC2, VPC, RDS, S3, networking, and primary CI/CD pipeline
+- **Additional CI/CD Modules**: Create separate CodePipeline, CodeBuild, and ECR for each additional backend
+- **Single EC2 Instance**: All Docker containers deploy to the same `t3.micro` instance
+- **Resource Optimization**: No duplicate infrastructure resources (keys, subnets, security groups, etc.)
+- **Independent Deployments**: Each backend can be deployed independently while sharing the same target environment
