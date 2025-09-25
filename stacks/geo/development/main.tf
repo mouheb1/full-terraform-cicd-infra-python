@@ -56,3 +56,51 @@ module "geo_secondback_cicd" {
   # Ensure shared infrastructure (including CodeStar connection) is created first
   depends_on = [module.shared_infrastructure]
 }
+
+# Additional CI/CD pipeline for third backend
+module "geo_thirdback_cicd" {
+  source        = "../../../modules/cicd"
+  environment   = "dev"
+  namespace     = "geo"
+  backend_name  = "geoinvestinsights-thirdback"   # Project-specific name for pipeline
+  application_port = 5001                          # Flask runs on port 5001
+
+  github_owner  = "sabeel-it-consulting"
+  github_repo   = "geoinvestinsights-thirdback"
+  github_branch = "main"
+
+  # Use the same backend instance and CodeStar connection from shared infrastructure
+  backend_instance_id     = module.shared_infrastructure.backend_instance_id
+  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
+
+  tags = {
+    namespace = "geo"
+  }
+
+  # Ensure shared infrastructure (including CodeStar connection) is created first
+  depends_on = [module.shared_infrastructure]
+}
+
+# Additional CI/CD pipeline for auth backend
+module "geo_authback_cicd" {
+  source        = "../../../modules/cicd"
+  environment   = "dev"
+  namespace     = "geo"
+  backend_name  = "geoinvestinsights-authback"    # Project-specific name for pipeline
+  application_port = 5002                          # Flask runs on port 5002
+
+  github_owner  = "sabeel-it-consulting"
+  github_repo   = "geoinvestinsights-authback"
+  github_branch = "main"
+
+  # Use the same backend instance and CodeStar connection from shared infrastructure
+  backend_instance_id     = module.shared_infrastructure.backend_instance_id
+  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
+
+  tags = {
+    namespace = "geo"
+  }
+
+  # Ensure shared infrastructure (including CodeStar connection) is created first
+  depends_on = [module.shared_infrastructure]
+}
