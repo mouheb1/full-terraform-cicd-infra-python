@@ -27,7 +27,6 @@ variable "github_branch" {
 variable "backend_name" {
   description = "Name identifier for the backend (used to differentiate multiple backends)"
   type        = string
-  default     = "backend"
 }
 
 variable "application_port" {

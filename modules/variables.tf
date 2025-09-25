@@ -54,7 +54,6 @@ variable "github_repo" {
 variable "backend_name" {
   description = "Name identifier for the primary backend (used in pipeline naming)"
   type        = string
-  default     = "backend"
 }
 
 variable "second_github_repo" {
