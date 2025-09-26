@@ -6,7 +6,7 @@ This guide explains how to deploy multiple dockerized Python backends on the sam
 ## Architecture Overview
 
 ### Shared Resource Model
-- **One EC2 Instance**: All backends deploy to the same `t3.micro` instance
+- **One EC2 Instance**: All backends deploy to the same `t3.small` instance
 - **Shared Infrastructure**: VPC, subnets, database, S3, security groups created once
 - **Individual CI/CD**: Each backend gets its own CodePipeline, ECR, and deployment process
 - **No Duplicates**: Network and core resources are never recreated

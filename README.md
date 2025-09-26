@@ -9,7 +9,7 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
 ## AWS Services Used
 
 ### Core Compute Services
-- **EC2 Instance** (`t3.micro`)
+- **EC2 Instance** (`t3.small`)
   - Amazon Linux 2 AMI
   - Auto-configured for multiple dockerized Python applications (Django + Flask)
   - Includes CodeDeploy agent for automated deployments
@@ -27,7 +27,7 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
   - Route tables configured for proper traffic routing
 
 ### Database Services
-- **RDS PostgreSQL** (`db.t3.micro`)
+- **RDS PostgreSQL** (`db.t3.small`)
   - PostgreSQL 17.4 engine
   - 20GB GP3 storage (cost-optimized)
   - Multi-AZ disabled for cost savings
@@ -74,8 +74,8 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
   - Private key stored locally with 0400 permissions
 
 ### Cost Optimization Features
-- **EC2**: t3.micro instance, 8GB GP3 storage, no encryption
-- **RDS**: t3.micro instance, minimal storage, no backups, no Multi-AZ
+- **EC2**: t3.small instance, 8GB GP3 storage, no encryption
+- **RDS**: t3.small instance, minimal storage, no backups, no Multi-AZ
 - **S3**: Lifecycle policies, no versioning, standard storage class
 - **CloudFront**: PriceClass_100 for development environments
 - **ECR**: Aggressive image cleanup policies
@@ -86,7 +86,7 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
 ### Development Environment (`geo/development/`)
 - **Region**: `eu-west-3` (Paris)
 - **VPC CIDR**: `10.0.0.0/16`
-- **Instance Type**: `t3.micro`
+- **Instance Type**: `t3.small`
 - **Database**: `geo_dev` with development settings
 - **GitHub Repositories**:
   - `sabeel-it-consulting/geoinvestinsights-backend` (Django backend)
@@ -133,7 +133,7 @@ The infrastructure uses an **improved shared resource model** with **parameteriz
 
 - **Shared Infrastructure Module**: Creates all core AWS resources (VPC, EC2, RDS, S3, networking) once
 - **Parameterized CI/CD Modules**: Create separate deployment pipelines for each backend with unique identifiers
-- **Single EC2 Instance**: All Docker containers deploy to the same `t3.micro` instance
+- **Single EC2 Instance**: All Docker containers deploy to the same `t3.small` instance
 - **No Resource Conflicts**: Each backend uses unique naming (`backend_name` parameter) to prevent "already exists" errors
 - **Independent Deployments**: Each backend maintains separate CodePipeline, ECR, and deployment processes
 
@@ -190,3 +190,5 @@ module "geo_[name]_cicd" {
 - **Per-Backend Resources** (created per backend): ECR repository, CodePipeline, CodeBuild, CodeDeploy application, S3 artifacts bucket
 - **Resource Isolation**: Each backend has unique CI/CD pipeline while sharing target infrastructure
 - **Cost Optimization**: Maximum resource sharing while maintaining deployment independence
+
+should start with this first terraform apply -target=module.shared_infrastructure -auto-approve

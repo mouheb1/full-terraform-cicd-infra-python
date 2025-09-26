@@ -61,7 +61,7 @@ resource "aws_db_instance" "database" {
   db_name        = replace("${var.namespace}_${var.environment}", "-", "_")
   engine         = "postgres"
   engine_version = "17.4"        # Use stable version, not latest
-  instance_class = "db.t3.micro" # Smallest instance
+  instance_class = "db.t3.small" # Smallest instance
 
   # Storage - Minimum for cost optimization
   allocated_storage = 20 # Minimum for PostgreSQL

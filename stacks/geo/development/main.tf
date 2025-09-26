@@ -8,7 +8,7 @@ module "shared_infrastructure" {
   branch_name   = "main"
   vpc_cidr      = "10.0.0.0/16"
   vpc_name      = "geo-dev"
-  instance_type = "t3.micro"
+  instance_type = "t3.small"
   key_name      = null
 
   # Backend configuration for primary backend
