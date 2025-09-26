@@ -60,6 +60,11 @@ DB_USER=${db_user}
 DB_PASSWORD=${db_password}
 SECRET_KEY=${django_secret_key}
 ALLOWED_HOSTS=*
+
+# Auth backend specific variables
+AUTH_PORT=5002
+FLASK_ENV=${python_env}
+FLASK_DEBUG=false
 EOF
 
 echo "EC2 setup completed" > /var/log/user-data.log
