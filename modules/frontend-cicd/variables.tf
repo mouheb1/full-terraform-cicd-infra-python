@@ -49,6 +49,11 @@ variable "cloudfront_distribution_arn" {
   type        = string
 }
 
+variable "backend_public_dns" {
+  description = "Public DNS name of the backend EC2 instance"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

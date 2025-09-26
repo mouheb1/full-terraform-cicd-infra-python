@@ -178,6 +178,26 @@ resource "aws_codebuild_project" "frontend" {
       name  = "ENVIRONMENT"
       value = var.environment
     }
+
+    environment_variable {
+      name  = "REACT_APP_AUTH_BACKEND_URL"
+      value = "http://${var.backend_public_dns}:5002"
+    }
+
+    environment_variable {
+      name  = "REACT_APP_MAIN_BACKEND_URL"
+      value = "http://${var.backend_public_dns}:8000"
+    }
+
+    environment_variable {
+      name  = "REACT_APP_SECOND_BACKEND_URL"
+      value = "http://${var.backend_public_dns}:5000"
+    }
+
+    environment_variable {
+      name  = "REACT_APP_THIRD_BACKEND_URL"
+      value = "http://${var.backend_public_dns}:5001"
+    }
   }
 
   source {

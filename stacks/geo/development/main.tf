@@ -136,6 +136,9 @@ module "geo_frontend_cicd" {
   cloudfront_distribution_id  = module.geo_frontend.cloudfront_distribution_id
   cloudfront_distribution_arn = module.geo_frontend.cloudfront_distribution_arn
 
+  # Backend endpoints for React app
+  backend_public_dns = module.shared_infrastructure.backend_public_dns
+
   tags = {
     namespace = "geo"
     type      = "frontend-cicd"
