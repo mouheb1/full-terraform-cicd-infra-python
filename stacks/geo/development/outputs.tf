@@ -68,3 +68,19 @@ output "geo_secondback_codepipeline_name" {
   description = "Name of the CodePipeline for second backend"
   value       = module.geo_secondback_cicd.codepipeline_name
 }
+
+# Frontend outputs
+output "frontend_website_url" {
+  description = "URL of the React application"
+  value       = module.geo_frontend.website_url
+}
+
+output "frontend_cloudfront_domain" {
+  description = "CloudFront domain name for the React app"
+  value       = module.geo_frontend.cloudfront_domain_name
+}
+
+output "frontend_codepipeline_name" {
+  description = "CodePipeline name for the React app"
+  value       = module.geo_frontend_cicd.codepipeline_name
+}

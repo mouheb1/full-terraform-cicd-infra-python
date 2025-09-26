@@ -104,3 +104,43 @@ module "geo_authback_cicd" {
   # Ensure shared infrastructure (including CodeStar connection) is created first
   depends_on = [module.shared_infrastructure]
 }
+
+# Frontend hosting infrastructure (React app)
+module "geo_frontend" {
+  source      = "../../../modules/frontend"
+  environment = "dev"
+  namespace   = "geo"
+
+  tags = {
+    namespace = "geo"
+    type      = "frontend"
+  }
+}
+
+# Frontend CI/CD pipeline for React app
+module "geo_frontend_cicd" {
+  source      = "../../../modules/frontend-cicd"
+  environment = "dev"
+  namespace   = "geo"
+
+  github_owner  = "sabeel-it-consulting"
+  github_repo   = "geoinvestinsights-frontend"
+  github_branch = "main"
+
+  # Use the same CodeStar connection from shared infrastructure
+  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
+
+  # Connect to the frontend hosting resources
+  frontend_bucket_name        = module.geo_frontend.frontend_bucket_name
+  frontend_bucket_arn         = module.geo_frontend.frontend_bucket_arn
+  cloudfront_distribution_id  = module.geo_frontend.cloudfront_distribution_id
+  cloudfront_distribution_arn = module.geo_frontend.cloudfront_distribution_arn
+
+  tags = {
+    namespace = "geo"
+    type      = "frontend-cicd"
+  }
+
+  # Ensure shared infrastructure and frontend hosting are created first
+  depends_on = [module.shared_infrastructure, module.geo_frontend]
+}
