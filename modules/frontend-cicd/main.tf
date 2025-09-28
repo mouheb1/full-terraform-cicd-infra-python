@@ -181,22 +181,22 @@ resource "aws_codebuild_project" "frontend" {
 
     environment_variable {
       name  = "VITE_AUTH_BACKEND_URL"
-      value = "http://${var.backend_public_dns}:5002"
+      value = "http://${var.backend_public_ip}:5002"
     }
 
     environment_variable {
       name  = "VITE_MAIN_BACKEND_URL"
-      value = "http://${var.backend_public_dns}:8000"
+      value = "http://${var.backend_public_ip}:8000"
     }
 
     environment_variable {
       name  = "VITE_SECOND_BACKEND_URL"
-      value = "http://${var.backend_public_dns}:5000"
+      value = "http://${var.backend_public_ip}:5000"
     }
 
     environment_variable {
       name  = "VITE_THIRD_BACKEND_URL"
-      value = "http://${var.backend_public_dns}:5001"
+      value = "http://${var.backend_public_ip}:5001"
     }
   }
 

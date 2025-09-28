@@ -108,7 +108,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "S3-${aws_s3_bucket.frontend.bucket}"
     compress               = true
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
 
     # Use forwarded_values for cost optimization
     forwarded_values {
@@ -145,7 +145,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     default_ttl            = 86400   # 1 day for static assets
     max_ttl                = 31536000 # 1 year for static assets
     compress               = true
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
   }
 
   # Custom error responses for React Router

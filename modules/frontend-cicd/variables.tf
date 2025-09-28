@@ -54,6 +54,11 @@ variable "backend_public_dns" {
   type        = string
 }
 
+variable "backend_public_ip" {
+  description = "Public IP address of the backend EC2 instance"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
