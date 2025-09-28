@@ -161,6 +161,7 @@ module "geo_frontend_cicd" {
 
   # Backend endpoints for React app
   backend_public_dns = module.shared_infrastructure.backend_public_dns
+  backend_public_ip  = module.shared_infrastructure.backend_public_ip
 
   tags = {
     namespace = "geo"
