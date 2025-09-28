@@ -45,26 +45,56 @@ chmod 700 /home/ec2-user/.ssh
 chmod 600 /home/ec2-user/.ssh/authorized_keys
 chown -R ec2-user:ec2-user /home/ec2-user/.ssh
 
-# Create environment file for Docker container
-cat > /opt/app/.env << EOF
+# Create environment file for Docker containers
+# Create directories and environment files for each backend project
+%{ for project in backend_projects }
+mkdir -p ${project.path}
+chown ec2-user:ec2-user ${project.path}
+%{ endfor }
+
+# Create shared environment file template
+ENV_CONTENT=$(cat << 'ENV_EOF'
+# Django Main Backend (Port 8000)
 DJANGO_ENV=${python_env}
 DEBUG=false
 PORT=8000
-NAMESPACE=${namespace}
-ENVIRONMENT=${environment}
+SECRET_KEY=${django_secret_key}
+ALLOWED_HOSTS=*
+
+# Common Database Configuration
 DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
 DB_HOST=${db_host}
 DB_PORT=${db_port}
 DB_NAME=${db_name}
 DB_USER=${db_user}
 DB_PASSWORD=${db_password}
-SECRET_KEY=${django_secret_key}
-ALLOWED_HOSTS=*
 
-# Auth backend specific variables
+# Infrastructure Variables
+NAMESPACE=${namespace}
+ENVIRONMENT=${environment}
+
+# Auth Backend (Port 5002)
 AUTH_PORT=5002
 FLASK_ENV=${python_env}
 FLASK_DEBUG=false
-EOF
+JWT_SECRET_KEY=${jwt_secret_key}
+
+# Second Backend - Report Generation (Port 5000)
+SECOND_BACKEND_PORT=5000
+
+# Third Backend - Agricultural Analysis (Port 5001)
+THIRD_BACKEND_PORT=5001
+
+# Google Earth Engine (for backends that need it)
+GOOGLE_APPLICATION_CREDENTIALS=/opt/app/service-account-key.json
+ENV_EOF
+)
+
+# Deploy environment file to each backend project directory
+%{ for project in backend_projects }
+echo "$ENV_CONTENT" > ${project.path}/.env
+chown ec2-user:ec2-user ${project.path}/.env
+echo "Created .env file for ${project.name} at ${project.path}/.env"
+%{ endfor }
 
 echo "EC2 setup completed" > /var/log/user-data.log

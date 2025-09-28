@@ -17,3 +17,11 @@ variable "django_secret_key" {
   default     = ""
   sensitive   = true
 }
+
+# Flask Auth Backend configuration
+variable "jwt_secret_key" {
+  description = "JWT secret key for Flask authentication backend"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

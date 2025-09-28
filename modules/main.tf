@@ -28,6 +28,12 @@ module "backend" {
   # Django configuration variables
   django_secret_key = var.django_secret_key
 
+  # Flask Auth Backend configuration
+  jwt_secret_key = var.jwt_secret_key
+
+  # Backend projects configuration
+  backend_projects = var.backend_projects
+
   # S3 access policy
   s3_access_policy_arn = module.s3.s3_access_policy_arn
 }

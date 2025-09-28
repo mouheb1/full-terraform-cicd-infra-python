@@ -87,3 +87,26 @@ variable "django_secret_key" {
   default     = ""
   sensitive   = true
 }
+
+# Flask Auth Backend configuration
+variable "jwt_secret_key" {
+  description = "JWT secret key for Flask authentication backend"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# Backend projects configuration
+variable "backend_projects" {
+  description = "List of backend projects to deploy on EC2"
+  type = list(object({
+    name = string
+    path = string
+  }))
+  default = [
+    {
+      name = "geoinvestinsights-backend"
+      path = "/opt/app"
+    }
+  ]
+}

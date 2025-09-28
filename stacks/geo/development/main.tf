@@ -26,6 +26,29 @@ module "shared_infrastructure" {
   # Django configuration - secret key is in terraform.tfvars
   django_secret_key = var.django_secret_key
 
+  # Flask Auth Backend configuration - JWT secret key is in terraform.tfvars
+  jwt_secret_key = var.jwt_secret_key
+
+  # Backend projects configuration
+  backend_projects = [
+    {
+      name = "geoinvestinsights-backend"
+      path = "/opt/app"
+    },
+    {
+      name = "geoinvestinsights-authback"
+      path = "/opt/geo-authback"
+    },
+    {
+      name = "geoinvestinsights-secondback"
+      path = "/opt/geo-secondback"
+    },
+    {
+      name = "geoinvestinsights-thirdback"
+      path = "/opt/geo-thirdback"
+    }
+  ]
+
   profile = "geo"
   region  = "eu-west-3"
   tags = {

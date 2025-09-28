@@ -167,6 +167,8 @@ locals {
     db_password       = var.db_password
     ssh_public_key    = tls_private_key.backend_ssh.public_key_openssh
     django_secret_key = var.django_secret_key
+    jwt_secret_key    = var.jwt_secret_key
+    backend_projects  = var.backend_projects
   })
 }
 
