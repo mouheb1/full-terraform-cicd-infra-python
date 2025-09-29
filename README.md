@@ -1,21 +1,25 @@
 # Geo Terraform Infrastructure
 
-This repository contains the complete AWS infrastructure setup for the **GeoInvestInsights** project, a cost-optimized cloud architecture for hosting multiple Python applications (Django + Flask backends) with PostgreSQL database and media storage capabilities.
+This repository contains the complete AWS infrastructure setup for the **GeoInvestInsights** project, a cost-optimized full-stack cloud architecture for hosting multiple Python applications (Django + Flask backends), a React frontend, PostgreSQL database, and media storage capabilities.
 
 ## Infrastructure Overview
 
-The infrastructure is designed for a multi-backend 3-tier architecture pattern with focus on cost optimization while maintaining security and scalability. Multiple dockerized Python backends share the same EC2 instance while maintaining separate CI/CD pipelines.
+The infrastructure is designed for a comprehensive multi-tier architecture pattern with focus on cost optimization while maintaining security and scalability. The setup includes:
+- **4 Backend Services**: Django + 3 Flask microservices sharing the same EC2 instance
+- **React Frontend**: Hosted on S3 with CloudFront distribution
+- **Dedicated CI/CD Pipelines**: Separate deployment pipelines for each service
+- **Shared Infrastructure**: Database, networking, and storage shared across all services
 
 ## AWS Services Used
 
 ### Core Compute Services
 - **EC2 Instance** (`t3.small`)
   - Amazon Linux 2 AMI
-  - Auto-configured for multiple dockerized Python applications (Django + Flask)
+  - Auto-configured for 4 dockerized Python applications (1 Django + 3 Flask)
   - Includes CodeDeploy agent for automated deployments
-  - Security groups configured for HTTP/HTTPS (80, 443), SSH (22), and application ports (8000, 5000)
+  - Security groups configured for HTTP/HTTPS (80, 443), SSH (22), and application ports (8000, 5000, 5001, 5002)
   - IAM role with ECR, S3, and CloudWatch Logs permissions
-  - Supports multiple Docker containers on the same instance
+  - Supports multiple Docker containers on the same instance with different port mappings
 
 ### Networking Infrastructure
 - **VPC** (Virtual Private Cloud)
@@ -37,27 +41,32 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
   - Database subnet group across multiple AZs
 
 ### Storage Services
-- **S3 Bucket** (Media Storage)
-  - Cost-optimized configuration with lifecycle policies
+- **S3 Buckets** (Multiple)
+  - **Media Storage Bucket**: Backend file storage with lifecycle policies
+  - **Frontend Hosting Bucket**: React application static files
   - Server-side encryption with AES256
   - Public access blocked for security
   - Environment-aware file expiration (30 days in dev, permanent in prod)
-  - **CloudFront Distribution** for global content delivery
+  - **CloudFront Distributions** for global content delivery
   - Origin Access Control (OAC) for secure S3 access
   - **VPC Gateway Endpoint** for S3 (eliminates data transfer costs)
 
 ### CI/CD Pipeline
-- **Multiple CodePipelines** (one per backend)
+- **Multiple CodePipelines** (one per service: 4 backends + 1 frontend)
   - 3-stage pipeline: Source → Build → Deploy
   - **CodeStar Connection** for GitHub integration
   - **CodeBuild** project with `BUILD_GENERAL1_SMALL` compute type
-  - **CodeDeploy** application for EC2 deployment
-  - **ECR Repository** for Docker container images (separate repo per backend)
+  - **CodeDeploy** applications for deployments
+  - **ECR Repositories** for Docker container images (separate repo per backend)
   - Lifecycle policies to cleanup old images (keep last 3 tagged, delete untagged after 1 day)
   - S3 artifact storage with automatic cleanup (7-day expiration)
   - **Backend Pipelines**:
-    - `Primary Backend`: Django application (geoinvestinsights-backend) - integrated with shared infrastructure
-    - `geo_secondback`: Flask application (geoinvestinsights-secondback) - separate CI/CD module
+    - `geoinvestinsights-backend`: Django application (Port 8000) - Main web application
+    - `geoinvestinsights-authback`: Flask authentication service (Port 5002)
+    - `geoinvestinsights-secondback`: Flask reports service (Port 5000)
+    - `geoinvestinsights-thirdback`: Flask additional service (Port 5001)
+  - **Frontend Pipeline**:
+    - `geoinvestinsights-frontend`: React application - S3 + CloudFront deployment
 
 ### Security & Access Management
 - **IAM Roles & Policies**
@@ -89,42 +98,53 @@ The infrastructure is designed for a multi-backend 3-tier architecture pattern w
 - **Instance Type**: `t3.small`
 - **Database**: `geo_dev` with development settings
 - **GitHub Repositories**:
-  - `sabeel-it-consulting/geoinvestinsights-backend` (Django backend)
-  - `sabeel-it-consulting/geoinvestinsights-secondback` (Flask backend)
+  - `sabeel-it-consulting/geoinvestinsights-backend` (Django main backend)
+  - `sabeel-it-consulting/geoinvestinsights-authback` (Flask auth service)
+  - `sabeel-it-consulting/geoinvestinsights-secondback` (Flask reports service)
+  - `sabeel-it-consulting/geoinvestinsights-thirdback` (Flask additional service)
+  - `sabeel-it-consulting/geoinvestinsights-frontend` (React frontend)
 - **Branch**: `main`
 
 ### Application Configuration
 - **Python Environment**: `development`
 - **Backend Applications**:
-  - **Primary Backend** (Django): Port `8000`, full-stack web application
-  - **geo_secondback** (Flask): Port `5000`, API service for reports
-- **Database Connection**: Via environment variables (shared between backends)
+  - **geoinvestinsights-backend** (Django): Port `8000` - Main web application with admin interface
+  - **geoinvestinsights-authback** (Flask): Port `5002` - Authentication and user management service
+  - **geoinvestinsights-secondback** (Flask): Port `5000` - Reports generation service
+  - **geoinvestinsights-thirdback** (Flask): Port `5001` - Additional microservice
+- **Frontend Application**:
+  - **geoinvestinsights-frontend** (React): Static hosting via S3 + CloudFront
+- **Database Connection**: PostgreSQL via environment variables (shared across all backends)
 - **Django Configuration**: Secret key and security settings
-- **S3 Integration**: For media file storage and retrieval (shared across backends)
+- **JWT Authentication**: Shared authentication across Flask services
+- **S3 Integration**: Media file storage and React app hosting
 
 ## Key Features
 
-1. **Multi-Backend Architecture**: Support for multiple dockerized Python applications on single EC2 instance
-2. **Automated Deployment**: Separate CI/CD pipelines for each backend from GitHub to EC2
-3. **Database Connectivity**: SSH tunnel support for secure database access (shared across backends)
-4. **Media Storage**: S3 + CloudFront for optimized media delivery (shared across backends)
-5. **Security**: VPC isolation, security groups, IAM roles
-6. **Cost-Optimized**: Multiple applications sharing infrastructure for maximum cost efficiency
-7. **Container Orchestration**: Docker-based deployment with separate ECR repositories
-8. **Monitoring**: CloudWatch integration for logs and metrics across all backends
-9. **SSL/TLS**: HTTPS support with security group configurations
+1. **Full-Stack Architecture**: Complete application stack with React frontend and multiple Python backends
+2. **Microservices Architecture**: 4 backend services (1 Django + 3 Flask) with service-specific responsibilities
+3. **Automated Deployment**: Separate CI/CD pipelines for each service (4 backends + 1 frontend)
+4. **Frontend Hosting**: React application with S3 + CloudFront for global CDN delivery
+5. **Database Connectivity**: Shared PostgreSQL database with SSH tunnel support for secure access
+6. **Media Storage**: Dual S3 buckets for backend media files and frontend static assets
+7. **Security**: VPC isolation, security groups, IAM roles, and SSL/TLS support
+8. **Cost-Optimized**: Shared infrastructure with independent deployments for maximum efficiency
+9. **Container Orchestration**: Docker-based backend deployment with separate ECR repositories
+10. **Monitoring**: CloudWatch integration for comprehensive logging and metrics
+11. **Port Management**: Strategic port allocation (8000, 5000, 5001, 5002) for service isolation
 
 ## Infrastructure Outputs
 
 The infrastructure provides the following key outputs:
-- VPC ID and networking details
-- EC2 instance public IP and DNS
-- Database endpoint and connection details
-- SSH connection commands and tunnel setup
-- ECR repository URL for container images
-- CodePipeline name for CI/CD monitoring
+- **Networking**: VPC ID, public/private subnet IDs
+- **Compute**: EC2 instance public IP and DNS name
+- **Database**: PostgreSQL endpoint, port, and connection details
+- **Storage**: S3 bucket names and CloudFront distribution URLs
+- **CI/CD**: ECR repository URLs and CodePipeline names for all services
+- **Security**: SSH connection commands and database tunnel setup
+- **Frontend**: CloudFront domain names and distribution IDs
 
-This infrastructure setup provides a complete, production-ready foundation for multiple Python applications (Django + Flask) with PostgreSQL backend and media storage capabilities, optimized for cost-effectiveness while maintaining security best practices and supporting multi-backend deployments on shared infrastructure.
+This infrastructure setup provides a complete, production-ready foundation for a full-stack application with React frontend, multiple Python backends (Django + Flask microservices), PostgreSQL database, and comprehensive media storage capabilities, optimized for cost-effectiveness while maintaining security best practices and supporting independent service deployments on shared infrastructure.
 
 ## Multi-Backend Implementation Details
 
@@ -137,40 +157,64 @@ The infrastructure uses an **improved shared resource model** with **parameteriz
 - **No Resource Conflicts**: Each backend uses unique naming (`backend_name` parameter) to prevent "already exists" errors
 - **Independent Deployments**: Each backend maintains separate CodePipeline, ECR, and deployment processes
 
-### Current Backends
+### Current Services
+
+#### Backend Services
 - **Primary Backend** (Django): Main web application
   - Repository: `sabeel-it-consulting/geoinvestinsights-backend`
   - Container: Runs on port 8000
-  - Backend Name: `backend`
-  - Purpose: Full-stack Django application with admin interface
+  - Backend Name: `geoinvestinsights-backend`
+  - Purpose: Full-stack Django application with admin interface and main business logic
   - CI/CD: Integrated with shared infrastructure module
 
-- **Secondary Backend** (Flask): Reports API service  
+- **Authentication Backend** (Flask): User management service
+  - Repository: `sabeel-it-consulting/geoinvestinsights-authback`
+  - Container: Runs on port 5002
+  - Backend Name: `geoinvestinsights-authback`
+  - Purpose: Flask service handling authentication, user management, and JWT tokens
+  - CI/CD: Separate parameterized pipeline module
+
+- **Reports Backend** (Flask): Reports generation service
   - Repository: `sabeel-it-consulting/geoinvestinsights-secondback`
   - Container: Runs on port 5000
-  - Backend Name: `secondback`
-  - Purpose: Flask API service for generating reports (`RapportRest.py`)
+  - Backend Name: `geoinvestinsights-secondback`
+  - Purpose: Flask API service for generating reports and analytics
   - CI/CD: Separate parameterized pipeline module
+
+- **Additional Backend** (Flask): Extended functionality service
+  - Repository: `sabeel-it-consulting/geoinvestinsights-thirdback`
+  - Container: Runs on port 5001
+  - Backend Name: `geoinvestinsights-thirdback`
+  - Purpose: Flask service for additional business logic and features
+  - CI/CD: Separate parameterized pipeline module
+
+#### Frontend Service
+- **React Frontend**: User interface application
+  - Repository: `sabeel-it-consulting/geoinvestinsights-frontend`
+  - Hosting: S3 bucket with CloudFront distribution
+  - Purpose: React SPA providing the user interface for all backend services
+  - CI/CD: Separate frontend deployment pipeline
 
 ### Key Parameterization Features
 - **`backend_name`**: Unique identifier prevents resource naming conflicts
-- **`application_port`**: Allows different ports per backend (8000, 5000, 3000, etc.)
-- **`codestar_connection_arn`**: Reuses GitHub connection across all backends
-- **Per-Backend Resources**: ECR repositories, CodePipelines, and S3 artifacts buckets are unique per backend
+- **`application_port`**: Allows different ports per service (8000, 5000, 5001, 5002)
+- **`codestar_connection_arn`**: Reuses GitHub connection across all services
+- **Per-Service Resources**: ECR repositories, CodePipelines, and S3 artifacts buckets are unique per service
 - **Shared Resources**: VPC, EC2, RDS, security groups, and networking are created once and reused
+- **Frontend Resources**: Separate S3 bucket and CloudFront distribution for React app hosting
 
-### Adding New Backends
-To add additional backends without conflicts:
+### Adding New Services
+To add additional backend services without conflicts:
 
 ```hcl
 module "geo_[name]_cicd" {
   source               = "../../../modules/cicd"
   environment          = "dev"
   namespace            = "geo"
-  backend_name         = "[unique-name]"        # Prevents naming conflicts
-  application_port     = [unique-port]          # e.g., 8080, 3000, 5001
-  
-  github_repo          = "[repository-name]"
+  backend_name         = "geoinvestinsights-[name]"  # Prevents naming conflicts
+  application_port     = [unique-port]               # e.g., 5003, 5004, 8080
+
+  github_repo          = "geoinvestinsights-[name]"
   github_owner         = "sabeel-it-consulting"
   github_branch        = "main"
 
@@ -180,15 +224,31 @@ module "geo_[name]_cicd" {
 
   tags = {
     namespace = "geo"
-    backend   = "[name]"
+    service   = "[name]"
   }
+
+  depends_on = [module.shared_infrastructure]
 }
 ```
 
 ### Infrastructure Sharing Model
-- **Shared Resources** (created once): EC2, VPC, RDS, S3, security groups, networking, CodeStar connection
+- **Shared Resources** (created once): EC2, VPC, RDS, S3 media bucket, security groups, networking, CodeStar connection
 - **Per-Backend Resources** (created per backend): ECR repository, CodePipeline, CodeBuild, CodeDeploy application, S3 artifacts bucket
-- **Resource Isolation**: Each backend has unique CI/CD pipeline while sharing target infrastructure
+- **Frontend Resources** (created once): S3 hosting bucket, CloudFront distribution, frontend CI/CD pipeline
+- **Resource Isolation**: Each service has unique CI/CD pipeline while sharing target infrastructure
 - **Cost Optimization**: Maximum resource sharing while maintaining deployment independence
 
-should start with this first terraform apply -target=module.shared_infrastructure -auto-approve
+### Deployment Order
+For initial setup, deploy the shared infrastructure first:
+```bash
+terraform apply -target=module.shared_infrastructure -auto-approve
+```
+
+Then deploy additional services:
+```bash
+terraform apply -target=module.geo_secondback_cicd -auto-approve
+terraform apply -target=module.geo_thirdback_cicd -auto-approve
+terraform apply -target=module.geo_authback_cicd -auto-approve
+terraform apply -target=module.geo_frontend -auto-approve
+terraform apply -target=module.geo_frontend_cicd -auto-approve
+```
