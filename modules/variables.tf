@@ -56,6 +56,12 @@ variable "backend_name" {
   type        = string
 }
 
+variable "application_port" {
+  description = "Port number for the backend application"
+  type        = number
+  default     = 8000
+}
+
 variable "second_github_repo" {
   description = "Second backend GitHub repository name"
   type        = string

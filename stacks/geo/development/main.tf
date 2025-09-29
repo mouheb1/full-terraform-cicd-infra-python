@@ -12,7 +12,8 @@ module "shared_infrastructure" {
   key_name      = null
 
   # Backend configuration for primary backend
-  backend_name  = "geoinvestinsights-backend"  # Project-specific name for pipeline
+  backend_name     = "geoinvestinsights-backend"  # Project-specific name for pipeline
+  application_port = 8000                         # Django runs on port 8000
 
   # GitHub configuration for primary backend
   github_owner  = "sabeel-it-consulting"

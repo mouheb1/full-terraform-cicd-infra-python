@@ -51,8 +51,8 @@ resource "aws_security_group" "backend_sg" {
 
   # Allow application port (8000 for Django)
   ingress {
-    from_port   = 8000
-    to_port     = 8000
+    from_port   = 5002
+    to_port     = 5002
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

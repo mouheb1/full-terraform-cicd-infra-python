@@ -52,7 +52,10 @@ mkdir -p ${project.path}
 chown ec2-user:ec2-user ${project.path}
 %{ endfor }
 
-# Create shared environment file template
+# Create service-specific environment files
+%{ for project in backend_projects }
+%{ if project.name == "geoinvestinsights-backend" }
+# Django Main Backend Environment
 ENV_CONTENT=$(cat << 'ENV_EOF'
 # Django Main Backend (Port 8000)
 DJANGO_ENV=${python_env}
@@ -73,25 +76,94 @@ DB_PASSWORD=${db_password}
 NAMESPACE=${namespace}
 ENVIRONMENT=${environment}
 
+# Google Earth Engine (for backends that need it)
+GOOGLE_APPLICATION_CREDENTIALS=/opt/app/service-account-key.json
+ENV_EOF
+)
+%{ endif }
+
+%{ if project.name == "geoinvestinsights-authback" }
+# Auth Backend Environment
+ENV_CONTENT=$(cat << 'ENV_EOF'
 # Auth Backend (Port 5002)
-AUTH_PORT=5002
 FLASK_ENV=${python_env}
 FLASK_DEBUG=false
+PORT=5002
+HOST=0.0.0.0
 JWT_SECRET_KEY=${jwt_secret_key}
 
-# Second Backend - Report Generation (Port 5000)
-SECOND_BACKEND_PORT=5000
+# Common Database Configuration
+DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_NAME=${db_name}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
 
-# Third Backend - Agricultural Analysis (Port 5001)
-THIRD_BACKEND_PORT=5001
+# Infrastructure Variables
+NAMESPACE=${namespace}
+ENVIRONMENT=${environment}
 
 # Google Earth Engine (for backends that need it)
 GOOGLE_APPLICATION_CREDENTIALS=/opt/app/service-account-key.json
 ENV_EOF
 )
+%{ endif }
 
-# Deploy environment file to each backend project directory
-%{ for project in backend_projects }
+%{ if project.name == "geoinvestinsights-secondback" }
+# Second Backend Environment
+ENV_CONTENT=$(cat << 'ENV_EOF'
+# Second Backend - Report Generation (Port 5000)
+FLASK_ENV=${python_env}
+FLASK_DEBUG=false
+PORT=5000
+HOST=0.0.0.0
+
+# Common Database Configuration
+DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_NAME=${db_name}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
+
+# Infrastructure Variables
+NAMESPACE=${namespace}
+ENVIRONMENT=${environment}
+
+# Google Earth Engine (for backends that need it)
+GOOGLE_APPLICATION_CREDENTIALS=/opt/app/service-account-key.json
+ENV_EOF
+)
+%{ endif }
+
+%{ if project.name == "geoinvestinsights-thirdback" }
+# Third Backend Environment
+ENV_CONTENT=$(cat << 'ENV_EOF'
+# Third Backend - Agricultural Analysis (Port 5001)
+FLASK_ENV=${python_env}
+FLASK_DEBUG=false
+PORT=5001
+HOST=0.0.0.0
+
+# Common Database Configuration
+DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_NAME=${db_name}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
+
+# Infrastructure Variables
+NAMESPACE=${namespace}
+ENVIRONMENT=${environment}
+
+# Google Earth Engine (for backends that need it)
+GOOGLE_APPLICATION_CREDENTIALS=/opt/app/service-account-key.json
+ENV_EOF
+)
+%{ endif }
+
 echo "$ENV_CONTENT" > ${project.path}/.env
 chown ec2-user:ec2-user ${project.path}/.env
 echo "Created .env file for ${project.name} at ${project.path}/.env"
