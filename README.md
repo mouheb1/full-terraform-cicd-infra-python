@@ -1,293 +1,814 @@
-# Geo Terraform Infrastructure
+# GeoInvestInsights Terraform Infrastructure
 
-This repository contains the complete AWS infrastructure setup for the **GeoInvestInsights** project, a cost-optimized full-stack cloud architecture for hosting multiple Python applications (Django + Flask backends), a React frontend, PostgreSQL database, and media storage capabilities.
+Complete AWS infrastructure for a multi-tier full-stack application with React frontend, multiple Python backends (Django + Flask), PostgreSQL database, and automated CI/CD pipelines.
 
-## Infrastructure Overview
+---
 
-The infrastructure is designed for a comprehensive multi-tier architecture pattern with focus on cost optimization while maintaining security and scalability. The setup includes:
-- **4 Backend Services**: Django + 3 Flask microservices sharing the same EC2 instance
-- **React Frontend**: Hosted on S3 with CloudFront distribution
-- **Dedicated CI/CD Pipelines**: Separate deployment pipelines for each service
-- **Shared Infrastructure**: Database, networking, and storage shared across all services
+## Table of Contents
 
-## AWS Services Used
+1. [Quick Start](#quick-start)
+2. [Architecture Overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Initial Setup](#initial-setup)
+5. [Module Reference](#module-reference)
+6. [Deployment Guide](#deployment-guide)
+7. [Post-Deployment Configuration](#post-deployment-configuration)
+8. [Destroy and Recreate](#destroy-and-recreate)
+9. [Troubleshooting](#troubleshooting)
+10. [Cost Breakdown](#cost-breakdown)
 
-### Core Compute Services
-- **EC2 Instance** (`t3.small`)
-  - Amazon Linux 2 AMI
-  - Auto-configured for 4 dockerized Python applications (1 Django + 3 Flask)
-  - Includes CodeDeploy agent for automated deployments
-  - Security groups configured for HTTP/HTTPS (80, 443), SSH (22), and application ports (8000, 5000, 5001, 5002)
-  - IAM role with ECR, S3, and CloudWatch Logs permissions
-  - Supports multiple Docker containers on the same instance with different port mappings
+---
 
-### Networking Infrastructure
-- **VPC** (Virtual Private Cloud)
-  - Custom VPC with `10.0.0.0/16` CIDR block
-  - DNS hostnames and DNS support enabled
-  - **Internet Gateway** for public internet access
-  - **Public Subnets** (2 AZs) with auto-assign public IPs
-  - **Private Subnets** (2 AZs) for database and internal services
-  - Route tables configured for proper traffic routing
+## Quick Start
 
-### Database Services
-- **RDS PostgreSQL** (`db.t3.small`)
-  - PostgreSQL 17.4 engine
-  - 20GB GP3 storage (cost-optimized)
-  - Multi-AZ disabled for cost savings
-  - Backup retention: 0 days (development optimized)
-  - Custom parameter group with SSL enforcement
-  - Private subnet deployment with security group restrictions
-  - Database subnet group across multiple AZs
+```bash
+# 1. Navigate to the stack directory
+cd stacks/geo/development
 
-### Storage Services
-- **S3 Buckets** (Multiple)
-  - **Media Storage Bucket**: Backend file storage with lifecycle policies
-  - **Frontend Hosting Bucket**: React application static files
-  - Server-side encryption with AES256
-  - Public access blocked for security
-  - Environment-aware file expiration (30 days in dev, permanent in prod)
-  - **CloudFront Distributions** for global content delivery
-  - Origin Access Control (OAC) for secure S3 access
-  - **VPC Gateway Endpoint** for S3 (eliminates data transfer costs)
+# 2. Create terraform.tfvars with your configuration
+cat > terraform.tfvars << EOF
+# Database credentials
+db_username      = "postgres"
+db_password      = "your-secure-password"
 
-### CI/CD Pipeline
-- **Multiple CodePipelines** (one per service: 4 backends + 1 frontend)
-  - 3-stage pipeline: Source → Build → Deploy
-  - **CodeStar Connection** for GitHub integration
-  - **CodeBuild** project with `BUILD_GENERAL1_SMALL` compute type
-  - **CodeDeploy** applications for deployments
-  - **ECR Repositories** for Docker container images (separate repo per backend)
-  - Lifecycle policies to cleanup old images (keep last 3 tagged, delete untagged after 1 day)
-  - S3 artifact storage with automatic cleanup (7-day expiration)
-  - **Backend Pipelines**:
-    - `geoinvestinsights-backend`: Django application (Port 8000) - Main web application
-    - `geoinvestinsights-authback`: Flask authentication service (Port 5002)
-    - `geoinvestinsights-secondback`: Flask reports service (Port 5000)
-    - `geoinvestinsights-thirdback`: Flask additional service (Port 5001)
-  - **Frontend Pipeline**:
-    - `geoinvestinsights-frontend`: React application - S3 + CloudFront deployment
+# Django secret key
+django_secret_key = "your-django-secret-key"
 
-### Security & Access Management
-- **IAM Roles & Policies**
-  - EC2 instance role with S3, ECR, and CloudWatch permissions
-  - CodeBuild service role with necessary build permissions
-  - CodePipeline service role with cross-service access
-  - CodeDeploy service role with deployment permissions
-  - S3 access policy for EC2 instances
-- **Security Groups**
-  - Backend security group (HTTP, HTTPS, SSH, app port)
-  - Database security group (PostgreSQL port 5432, restricted to backend)
-- **SSH Key Pairs**
-  - Auto-generated RSA 4096-bit key pairs
-  - Private key stored locally with 0400 permissions
+# JWT secret for Flask authentication
+jwt_secret_key    = "your-jwt-secret"
 
-### Cost Optimization Features
-- **EC2**: t3.small instance, 8GB GP3 storage, no encryption
-- **RDS**: t3.small instance, minimal storage, no backups, no Multi-AZ
-- **S3**: Lifecycle policies, no versioning, standard storage class
-- **CloudFront**: PriceClass_100 for development environments
-- **ECR**: Aggressive image cleanup policies
-- **CodePipeline**: Artifact cleanup after 7 days
+# Custom domain configuration
+domain_name    = "sabeeltech-esg.dev"
+enable_route53 = true
+EOF
 
-## Environment Configuration
+# 3. Initialize and deploy
+terraform init -upgrade
+terraform apply
 
-### Development Environment (`geo/development/`)
-- **Region**: `eu-west-3` (Paris)
-- **VPC CIDR**: `10.0.0.0/16`
-- **Instance Type**: `t3.small`
-- **Database**: `geo_dev` with development settings
-- **GitHub Repositories**:
-  - `sabeel-it-consulting/geoinvestinsights-backend` (Django main backend)
-  - `sabeel-it-consulting/geoinvestinsights-authback` (Flask auth service)
-  - `sabeel-it-consulting/geoinvestinsights-secondback` (Flask reports service)
-  - `sabeel-it-consulting/geoinvestinsights-thirdback` (Flask additional service)
-  - `sabeel-it-consulting/geoinvestinsights-frontend` (React frontend)
-- **Branch**: `main`
+# 4. Get deployment outputs
+terraform output application_urls
+terraform output nameservers
+terraform output backend_elastic_ip
+```
 
-### Application Configuration
-- **Python Environment**: `development`
-- **Backend Applications**:
-  - **geoinvestinsights-backend** (Django): Port `8000` - Main web application with admin interface
-  - **geoinvestinsights-authback** (Flask): Port `5002` - Authentication and user management service
-  - **geoinvestinsights-secondback** (Flask): Port `5000` - Reports generation service
-  - **geoinvestinsights-thirdback** (Flask): Port `5001` - Additional microservice
-- **Frontend Application**:
-  - **geoinvestinsights-frontend** (React): Static hosting via S3 + CloudFront
-- **Database Connection**: PostgreSQL via environment variables (shared across all backends)
-- **Django Configuration**: Secret key and security settings
-- **JWT Authentication**: Shared authentication across Flask services
-- **S3 Integration**: Media file storage and React app hosting
+---
 
-## Key Features
+## Architecture Overview
 
-1. **Full-Stack Architecture**: Complete application stack with React frontend and multiple Python backends
-2. **Microservices Architecture**: 4 backend services (1 Django + 3 Flask) with service-specific responsibilities
-3. **Automated Deployment**: Separate CI/CD pipelines for each service (4 backends + 1 frontend)
-4. **Frontend Hosting**: React application with S3 + CloudFront for global CDN delivery
-5. **Database Connectivity**: Shared PostgreSQL database with SSH tunnel support for secure access
-6. **Media Storage**: Dual S3 buckets for backend media files and frontend static assets
-7. **Security**: VPC isolation, security groups, IAM roles, and SSL/TLS support
-8. **Cost-Optimized**: Shared infrastructure with independent deployments for maximum efficiency
-9. **Container Orchestration**: Docker-based backend deployment with separate ECR repositories
-10. **Monitoring**: CloudWatch integration for comprehensive logging and metrics
-11. **Port Management**: Strategic port allocation (8000, 5000, 5001, 5002) for service isolation
+### Infrastructure Components
 
-## Infrastructure Outputs
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      AWS Cloud                                │
+│                                                               │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ Route 53 (DNS)                                         │  │
+│  │ - sabeeltech-esg.dev → CloudFront                     │  │
+│  │ - api.sabeeltech-esg.dev → EC2 Elastic IP            │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                        ↓                ↓                     │
+│  ┌─────────────────────────┐  ┌────────────────────────────┐│
+│  │ CloudFront (HTTPS)      │  │ Nginx Reverse Proxy        ││
+│  │ + ACM Certificate       │  │ + Let's Encrypt SSL        ││
+│  │ (Frontend)              │  │ (API Gateway)              ││
+│  └─────────────────────────┘  └────────────────────────────┘│
+│              ↓                            ↓                   │
+│  ┌─────────────────────────┐  ┌────────────────────────────┐│
+│  │ S3 Bucket               │  │ EC2 t3.small               ││
+│  │ (React Static Files)    │  │ Elastic IP: Static         ││
+│  │                         │  │ ┌────────────────────────┐ ││
+│  └─────────────────────────┘  │ │ Docker Containers:     │ ││
+│                                │ │ - Django (8000)        │ ││
+│  ┌─────────────────────────┐  │ │ - Flask Auth (5002)    │ ││
+│  │ RDS PostgreSQL          │◄─┤ │ - Flask Reports (5000) │ ││
+│  │ (Shared Database)       │  │ │ - Flask Service (5001) │ ││
+│  └─────────────────────────┘  │ └────────────────────────┘ ││
+│                                └────────────────────────────┘│
+│  ┌──────────────────────────────────────────────────────────┐│
+│  │ CI/CD Pipeline (per service)                             ││
+│  │ GitHub → CodePipeline → CodeBuild → ECR → CodeDeploy    ││
+│  └──────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────┘
+```
 
-The infrastructure provides the following key outputs:
-- **Networking**: VPC ID, public/private subnet IDs
-- **Compute**: EC2 instance public IP and DNS name
-- **Database**: PostgreSQL endpoint, port, and connection details
-- **Storage**: S3 bucket names and CloudFront distribution URLs
-- **CI/CD**: ECR repository URLs and CodePipeline names for all services
-- **Security**: SSH connection commands and database tunnel setup
-- **Frontend**: CloudFront domain names and distribution IDs
+### Application URLs
 
-This infrastructure setup provides a complete, production-ready foundation for a full-stack application with React frontend, multiple Python backends (Django + Flask microservices), PostgreSQL database, and comprehensive media storage capabilities, optimized for cost-effectiveness while maintaining security best practices and supporting independent service deployments on shared infrastructure.
+**Frontend:**
+- CloudFront: `https://d1234abcd.cloudfront.net`
+- Custom Domain: `https://sabeeltech-esg.dev`
 
-## Multi-Backend Implementation Details
+**Backend APIs:**
+- Auth (HTTPS): `https://api.sabeeltech-esg.dev`
+- Django (HTTP): `http://ELASTIC_IP:8000`
+- Reports (HTTP): `http://ELASTIC_IP:5000`
+- Service (HTTP): `http://ELASTIC_IP:5001`
 
-### Enhanced Architecture Overview
-The infrastructure uses an **improved shared resource model** with **parameterized modules** to prevent resource duplication conflicts:
+---
 
-- **Shared Infrastructure Module**: Creates all core AWS resources (VPC, EC2, RDS, S3, networking) once
-- **Parameterized CI/CD Modules**: Create separate deployment pipelines for each backend with unique identifiers
-- **Single EC2 Instance**: All Docker containers deploy to the same `t3.small` instance
-- **No Resource Conflicts**: Each backend uses unique naming (`backend_name` parameter) to prevent "already exists" errors
-- **Independent Deployments**: Each backend maintains separate CodePipeline, ECR, and deployment processes
+## Prerequisites
 
-### Current Services
+### Required Tools
+- **Terraform** >= 1.0
+- **AWS CLI** configured with appropriate credentials
+- **Git** for repository management
+- **SSH client** for EC2 access
 
-#### Backend Services
-- **Primary Backend** (Django): Main web application
-  - Repository: `sabeel-it-consulting/geoinvestinsights-backend`
-  - Container: Runs on port 8000
-  - Backend Name: `geoinvestinsights-backend`
-  - Purpose: Full-stack Django application with admin interface and main business logic
-  - CI/CD: Integrated with shared infrastructure module
+### AWS Account Requirements
+- Valid AWS account with admin/developer access
+- AWS CLI configured with profile named `geo`
+- GitHub account with repositories for each service
 
-- **Authentication Backend** (Flask): User management service
-  - Repository: `sabeel-it-consulting/geoinvestinsights-authback`
-  - Container: Runs on port 5002
-  - Backend Name: `geoinvestinsights-authback`
-  - Purpose: Flask service handling authentication, user management, and JWT tokens
-  - CI/CD: Separate parameterized pipeline module
+### Domain Registration
+- Domain registered (e.g., via OVH, GoDaddy)
+- Access to domain registrar's DNS settings
 
-- **Reports Backend** (Flask): Reports generation service
-  - Repository: `sabeel-it-consulting/geoinvestinsights-secondback`
-  - Container: Runs on port 5000
-  - Backend Name: `geoinvestinsights-secondback`
-  - Purpose: Flask API service for generating reports and analytics
-  - CI/CD: Separate parameterized pipeline module
+---
 
-- **Additional Backend** (Flask): Extended functionality service
-  - Repository: `sabeel-it-consulting/geoinvestinsights-thirdback`
-  - Container: Runs on port 5001
-  - Backend Name: `geoinvestinsights-thirdback`
-  - Purpose: Flask service for additional business logic and features
-  - CI/CD: Separate parameterized pipeline module
+## Initial Setup
 
-#### Frontend Service
-- **React Frontend**: User interface application
-  - Repository: `sabeel-it-consulting/geoinvestinsights-frontend`
-  - Hosting: S3 bucket with CloudFront distribution
-  - Purpose: React SPA providing the user interface for all backend services
-  - CI/CD: Separate frontend deployment pipeline
+### Step 1: Clone Repository
 
-### Key Parameterization Features
-- **`backend_name`**: Unique identifier prevents resource naming conflicts
-- **`application_port`**: Allows different ports per service (8000, 5000, 5001, 5002)
-- **`codestar_connection_arn`**: Reuses GitHub connection across all services
-- **Per-Service Resources**: ECR repositories, CodePipelines, and S3 artifacts buckets are unique per service
-- **Shared Resources**: VPC, EC2, RDS, security groups, and networking are created once and reused
-- **Frontend Resources**: Separate S3 bucket and CloudFront distribution for React app hosting
+```bash
+git clone <your-repo-url>
+cd terraform-infra-python/stacks/geo/development
+```
 
-### Adding New Services
-To add additional backend services without conflicts:
+### Step 2: Configure AWS Profile
+
+```bash
+# Configure AWS CLI with 'geo' profile
+aws configure --profile geo
+```
+
+Enter your AWS credentials when prompted.
+
+### Step 3: Create terraform.tfvars
+
+Create `stacks/geo/development/terraform.tfvars`:
 
 ```hcl
-module "geo_[name]_cicd" {
-  source               = "../../../modules/cicd"
-  environment          = "dev"
-  namespace            = "geo"
-  backend_name         = "geoinvestinsights-[name]"  # Prevents naming conflicts
-  application_port     = [unique-port]               # e.g., 5003, 5004, 8080
+# Database Configuration
+db_username      = "postgres"
+db_password      = "YourSecurePassword123!"
 
-  github_repo          = "geoinvestinsights-[name]"
-  github_owner         = "sabeel-it-consulting"
-  github_branch        = "main"
+# Django Configuration
+django_secret_key = "your-random-50-character-django-secret-key"
 
-  # Reuse shared resources - no duplication
-  backend_instance_id     = module.shared_infrastructure.backend_instance_id
-  codestar_connection_arn = module.shared_infrastructure.codestar_connection_arn
+# Flask Auth Configuration
+jwt_secret_key    = "your-random-jwt-secret-key"
 
-  tags = {
-    namespace = "geo"
-    service   = "[name]"
-  }
-
-  depends_on = [module.shared_infrastructure]
-}
+# Custom Domain (Optional - set enable_route53 = false to disable)
+domain_name    = "sabeeltech-esg.dev"
+enable_route53 = true
 ```
 
-### Infrastructure Sharing Model
-- **Shared Resources** (created once): EC2, VPC, RDS, S3 media bucket, security groups, networking, CodeStar connection
-- **Per-Backend Resources** (created per backend): ECR repository, CodePipeline, CodeBuild, CodeDeploy application, S3 artifacts bucket
-- **Frontend Resources** (created once): S3 hosting bucket, CloudFront distribution, frontend CI/CD pipeline
-- **Resource Isolation**: Each service has unique CI/CD pipeline while sharing target infrastructure
-- **Cost Optimization**: Maximum resource sharing while maintaining deployment independence
-
-### Deployment Order
-For initial setup, deploy the shared infrastructure first:
+**Generate Secure Keys:**
 ```bash
-terraform apply -target=module.shared_infrastructure -auto-approve
+# Django secret key
+python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+
+# JWT secret
+openssl rand -base64 32
 ```
 
-Then deploy additional services:
+### Step 4: Initialize Terraform
+
 ```bash
-terraform apply -target=module.geo_secondback_cicd -auto-approve
-terraform apply -target=module.geo_thirdback_cicd -auto-approve
-terraform apply -target=module.geo_authback_cicd -auto-approve
-terraform apply -target=module.geo_frontend -auto-approve
-terraform apply -target=module.geo_frontend_cicd -auto-approve
+terraform init -upgrade
 ```
 
-## DNS Configuration (Optional)
+---
 
-The infrastructure supports custom domain configuration using Route 53 and OVH domains:
+## Module Reference
 
-### Domain Setup
-- **`api.yourdomain.com`** → EC2 instance (auth backend on port 5002)
-- **`yourdomain.com`** → CloudFront distribution (React frontend)
+### 1. **Shared Infrastructure Module** (`modules/`)
 
-### Configuration Steps
-1. **Enable DNS in terraform.tfvars**:
-   ```hcl
-   domain_name    = "mydomain.com"
-   enable_route53 = true
-   ```
+**Purpose:** Creates core AWS resources shared by all services
 
-2. **Deploy and get nameservers**:
+**Components:**
+- **Network Module** (`modules/network/`)
+  - VPC with CIDR `10.0.0.0/16`
+  - 2 Public subnets (for EC2, NAT)
+  - 2 Private subnets (for RDS)
+  - Internet Gateway
+  - Route tables
+
+- **Backend Module** (`modules/backend/`)
+  - EC2 instance (t3.small, Amazon Linux 2)
+  - Elastic IP (static IP address)
+  - Security groups (SSH, HTTP, HTTPS, app ports)
+  - IAM roles and instance profile
+  - Auto-generated SSH key pair
+  - User data script (installs Docker, Nginx, Certbot)
+
+- **Database Module** (`modules/database/`)
+  - RDS PostgreSQL 17.4 (db.t3.small)
+  - 20GB GP3 storage
+  - Database subnet group
+  - Security group (port 5432)
+  - Parameter group with SSL enforcement
+
+- **S3 Module** (`modules/s3/`)
+  - Media storage bucket
+  - CloudFront distribution for S3
+  - VPC Gateway Endpoint (cost optimization)
+  - IAM policies for EC2 access
+
+- **CI/CD Module** (`modules/cicd/`)
+  - CodePipeline (Source → Build → Deploy)
+  - CodeBuild project
+  - CodeDeploy application
+  - ECR repository
+  - S3 artifacts bucket
+  - IAM roles
+
+### 2. **Frontend Module** (`modules/frontend/`)
+
+**Purpose:** Hosts React application with global CDN
+
+**Components:**
+- S3 bucket for static files
+- CloudFront distribution
+- Custom domain support
+- ACM certificate integration
+- Route 53 A records
+
+### 3. **ACM Certificate Module** (`modules/acm-certificate/`)
+
+**Purpose:** Manages SSL/TLS certificates and DNS
+
+**Components:**
+- Route 53 hosted zone
+- ACM certificate (us-east-1 for CloudFront)
+- DNS validation records
+- A record for API subdomain (api.domain.com)
+
+### 4. **Frontend CI/CD Module** (`modules/frontend-cicd/`)
+
+**Purpose:** Automated frontend deployment pipeline
+
+**Components:**
+- CodePipeline for React app
+- CodeBuild with Vite/React build
+- S3 deployment
+- CloudFront invalidation
+
+### 5. **Backend CI/CD Modules** (Multiple instances)
+
+**Purpose:** Separate pipeline for each backend service
+
+**Services:**
+- `geo_authback_cicd` - Flask authentication (port 5002)
+- `geo_secondback_cicd` - Flask reports (port 5000)
+- `geo_thirdback_cicd` - Flask service (port 5001)
+- Primary backend (Django) - Integrated in shared infrastructure
+
+---
+
+## Deployment Guide
+
+### Full Deployment Process
+
+#### Step 1: Deploy Infrastructure
+
+```bash
+cd stacks/geo/development
+
+# Deploy everything
+terraform apply
+```
+
+**What happens:**
+1. VPC and networking created
+2. EC2 instance launched with Elastic IP
+3. RDS PostgreSQL database created
+4. S3 buckets created
+5. ACM certificate requested (5-30 min validation)
+6. CloudFront distribution created
+7. CI/CD pipelines created for all services
+8. Nginx + Certbot installed on EC2 (automated)
+
+**Timeline:**
+- Initial apply: ~10-15 minutes
+- ACM certificate validation: 5-30 minutes
+- SSL certificate automation: 15-60 minutes (after DNS)
+
+#### Step 2: Configure Domain Nameservers
+
+```bash
+# Get nameservers
+terraform output nameservers
+```
+
+**Output example:**
+```
+[
+  "ns-1530.awsdns-63.org",
+  "ns-1761.awsdns-28.co.uk",
+  "ns-688.awsdns-22.net",
+  "ns-98.awsdns-12.com"
+]
+```
+
+**Configure in domain registrar:**
+1. Login to your registrar (OVH, GoDaddy, etc.)
+2. Find DNS/Nameserver settings
+3. Replace existing nameservers with the 4 AWS nameservers
+4. Save changes
+
+**Wait 15-60 minutes for DNS propagation**
+
+#### Step 3: Approve CodeStar Connection
+
+The GitHub integration requires one-time manual approval:
+
+1. Open AWS Console
+2. Navigate to **Developer Tools** → **Connections**
+3. Find connection (status: PENDING)
+4. Click **"Update pending connection"**
+5. **Authorize GitHub** access
+
+#### Step 4: Monitor SSL Certificate Setup
+
+The EC2 instance automatically sets up SSL for the API:
+
+```bash
+# SSH to EC2
+ssh -i ./geo-dev-backend-key.pem ec2-user@$(terraform output -raw backend_elastic_ip)
+
+# Check SSL setup progress
+sudo tail -f /var/log/ssl-cert-setup.log
+
+# Check service status
+sudo systemctl status ssl-cert-setup.service
+sudo systemctl status nginx
+```
+
+**Automation waits for:**
+1. DNS propagation (api.sabeeltech-esg.dev resolves correctly)
+2. Obtains Let's Encrypt certificate
+3. Configures Nginx with HTTPS
+4. Self-disables after success
+
+#### Step 5: Verify Deployment
+
+```bash
+# Get all important URLs
+terraform output application_urls
+
+# Test frontend
+curl -I https://sabeeltech-esg.dev
+
+# Test backend API (HTTPS)
+curl -I https://api.sabeeltech-esg.dev
+
+# Test other backends (HTTP)
+curl -I http://$(terraform output -raw backend_elastic_ip):8000
+```
+
+---
+
+## Post-Deployment Configuration
+
+### Update Frontend Configuration
+
+Your React app needs to call the HTTPS API:
+
+```javascript
+// src/config.js or .env
+export const API_BASE_URL = 'https://api.sabeeltech-esg.dev';
+
+// For Vite projects
+// .env
+VITE_AUTH_BACKEND_URL=https://api.sabeeltech-esg.dev
+VITE_MAIN_BACKEND_URL=http://ELASTIC_IP:8000
+VITE_SECOND_BACKEND_URL=http://ELASTIC_IP:5000
+VITE_THIRD_BACKEND_URL=http://ELASTIC_IP:5001
+```
+
+**Note:** Auth backend uses HTTPS (port 5002 via Nginx). Other backends use HTTP with direct Elastic IP access.
+
+### Deploy Applications
+
+Each service has its own CodePipeline:
+
+**Trigger deployment:**
+1. Push code to GitHub repository
+2. CodePipeline automatically triggers
+3. CodeBuild builds Docker image
+4. Image pushed to ECR
+5. CodeDeploy deploys to EC2
+
+**Manual trigger:**
+```bash
+# Via AWS CLI
+aws codepipeline start-pipeline-execution \
+  --name geo-dev-geoinvestinsights-authback-pipeline \
+  --profile geo
+```
+
+### Access EC2 Instance
+
+```bash
+# SSH connection
+ssh -i ./geo-dev-backend-key.pem ec2-user@$(terraform output -raw backend_elastic_ip)
+
+# Check running containers
+sudo docker ps
+
+# View logs
+sudo docker logs geo-authback
+sudo docker logs geo-backend
+```
+
+### Database Access
+
+**Via SSH Tunnel:**
+```bash
+# Create tunnel
+ssh -i ./geo-dev-backend-key.pem -L 5432:DATABASE_ENDPOINT:5432 ec2-user@ELASTIC_IP
+
+# Connect with psql
+psql -h localhost -p 5432 -U postgres -d geo_dev
+```
+
+---
+
+## Destroy and Recreate
+
+### Full Destroy/Apply Cycle
+
+**Will everything work after `terraform destroy` + `terraform apply`?**
+
+✅ **YES! Almost everything is fully automated.**
+
+#### What Works Automatically
+
+1. ✅ **Elastic IP** - Recreated and attached
+2. ✅ **Route 53 & DNS** - Hosted zone and records recreated
+3. ✅ **ACM Certificate** - Recreated and validated automatically
+4. ✅ **Let's Encrypt SSL** - Automated systemd service obtains certificate
+5. ✅ **CloudFront** - Recreated with custom domain
+6. ✅ **All Modules** - Recreated exactly as configured
+
+#### Manual Steps Required
+
+1. **Update Nameservers** (they change when hosted zone is recreated)
    ```bash
-   terraform apply
    terraform output nameservers
+   # Update in domain registrar
    ```
 
-3. **Configure OVH domain** to use Route 53 nameservers
+2. **Approve CodeStar Connection**
+   - AWS Console → Developer Tools → Connections
+   - Update pending connection → Authorize GitHub
 
-4. **Wait for DNS propagation** (15-60 minutes)
+#### ⚠️ Data Loss Warning
 
-### Auto-updating on EC2 IP Changes
-When EC2 IP changes (stop/start):
-1. Run `terraform apply`
-2. Route 53 updates automatically
-3. DNS propagation takes 1-2 minutes (TTL=60s)
-4. Brief connectivity issues resolve automatically
+These are **DESTROYED** and **NOT recoverable**:
+- ❌ RDS Database (all data lost)
+- ❌ S3 bucket contents (all files lost)
+- ❌ EC2 state (logs, configurations lost)
 
-For complete setup instructions, see [DNS_SETUP_GUIDE.md](DNS_SETUP_GUIDE.md).
+**Backup before destroy:**
+```bash
+# Backup database
+pg_dump -h DB_ENDPOINT -U postgres -d geo_dev > backup.sql
 
-### Cost Impact
-- Route 53 Hosted Zone: **$0.50/month**
-- DNS Queries: **~$0.40/month**
-- **Total DNS cost: ~$1/month**
+# Backup S3
+aws s3 sync s3://bucket-name local-backup/ --profile geo
+```
+
+#### Destroy/Apply Steps
+
+```bash
+cd stacks/geo/development
+
+# 1. Destroy everything
+terraform destroy
+
+# 2. Apply everything
+terraform apply
+
+# 3. Update nameservers in domain registrar
+terraform output nameservers
+
+# 4. Wait 15-60 minutes for DNS propagation
+
+# 5. Approve CodeStar connection in AWS Console
+
+# 6. Verify SSL setup
+ssh -i ./geo-dev-backend-key.pem ec2-user@$(terraform output -raw backend_elastic_ip)
+sudo tail -f /var/log/ssl-cert-setup.log
+
+# 7. Test
+curl -I https://sabeeltech-esg.dev
+curl -I https://api.sabeeltech-esg.dev
+```
+
+**Timeline:**
+- Terraform apply: ~10-15 minutes
+- ACM validation: 5-30 minutes
+- DNS propagation: 15-60 minutes (after nameserver update)
+- SSL automation: Happens automatically once DNS works
+- **Total: ~60-90 minutes**
+
+---
+
+## Troubleshooting
+
+### Certificate Not Validating
+
+**Symptoms:** ACM certificate stuck in "Pending validation"
+
+**Solutions:**
+1. Wait 5-30 minutes for DNS propagation
+2. Check nameservers in domain registrar
+3. Verify DNS validation records in Route 53 console
+
+```bash
+# Check certificate status
+aws acm describe-certificate \
+  --certificate-arn $(terraform output -raw certificate_arn) \
+  --region us-east-1 \
+  --profile geo
+```
+
+### Frontend Domain Not Resolving
+
+**Symptoms:** `nslookup sabeeltech-esg.dev` fails
+
+**Solutions:**
+1. Wait 15-60 minutes after updating nameservers
+2. Clear local DNS cache:
+   ```bash
+   # Linux
+   sudo systemd-resolve --flush-caches
+
+   # macOS
+   sudo dscacheutil -flushcache
+
+   # Windows
+   ipconfig /flushdns
+   ```
+3. Check with different DNS server:
+   ```bash
+   nslookup sabeeltech-esg.dev 8.8.8.8
+   ```
+
+### SSL Certificate Not Obtained (api.domain.com)
+
+**Symptoms:** `https://api.sabeeltech-esg.dev` not working
+
+**Solutions:**
+1. Check DNS resolution:
+   ```bash
+   nslookup api.sabeeltech-esg.dev
+   ```
+2. Check SSL setup logs:
+   ```bash
+   ssh -i ./geo-dev-backend-key.pem ec2-user@ELASTIC_IP
+   sudo cat /var/log/ssl-cert-setup.log
+   ```
+3. Manually trigger SSL setup:
+   ```bash
+   sudo /usr/local/bin/obtain-ssl-cert.sh
+   ```
+4. Restart SSL service:
+   ```bash
+   sudo systemctl restart ssl-cert-setup.service
+   ```
+
+### Backend API Not Accessible
+
+**Symptoms:** Cannot connect to backend services
+
+**Solutions:**
+1. **Check Security Group:**
+   ```bash
+   aws ec2 describe-security-groups \
+     --filters "Name=tag:Name,Values=geo-dev-backend-sg" \
+     --profile geo
+   ```
+   Verify ports 22, 80, 443, 5000, 5001, 5002, 8000 are open
+
+2. **Check Services Running:**
+   ```bash
+   ssh -i ./geo-dev-backend-key.pem ec2-user@ELASTIC_IP
+   sudo docker ps
+   ```
+
+3. **Check Container Logs:**
+   ```bash
+   sudo docker logs geo-authback
+   sudo docker logs geo-backend
+   ```
+
+4. **Restart Container:**
+   ```bash
+   sudo docker restart geo-authback
+   ```
+
+### CodePipeline Failing
+
+**Symptoms:** Pipeline execution fails
+
+**Solutions:**
+1. **Check Pipeline Status:**
+   ```bash
+   aws codepipeline get-pipeline-execution \
+     --pipeline-name geo-dev-geoinvestinsights-authback-pipeline \
+     --profile geo
+   ```
+
+2. **Check CodeBuild Logs:**
+   - AWS Console → CodeBuild → Build History
+   - Click on failed build → View logs
+
+3. **Common Issues:**
+   - `buildspec.yml` not found → Check repository root
+   - Docker build fails → Check Dockerfile syntax
+   - Insufficient permissions → Check IAM roles
+
+### Database Connection Issues
+
+**Symptoms:** Applications can't connect to database
+
+**Solutions:**
+1. **Check Database Endpoint:**
+   ```bash
+   terraform output database_endpoint
+   ```
+
+2. **Verify Security Group:**
+   ```bash
+   aws ec2 describe-security-groups \
+     --filters "Name=tag:Name,Values=geo-dev-database-sg" \
+     --profile geo
+   ```
+   Ensure port 5432 allows traffic from EC2 security group
+
+3. **Test Connection from EC2:**
+   ```bash
+   ssh -i ./geo-dev-backend-key.pem ec2-user@ELASTIC_IP
+   psql -h DATABASE_ENDPOINT -U postgres -d geo_dev
+   ```
+
+### Terraform State Issues
+
+**Symptoms:** "Resource already exists" or state drift
+
+**Solutions:**
+```bash
+# View state
+terraform state list
+
+# Remove specific resource
+terraform state rm 'module.path.to.resource'
+
+# Import existing resource
+terraform import 'module.path.to.resource' resource-id
+
+# Refresh state
+terraform refresh
+```
+
+---
+
+## Cost Breakdown
+
+### Monthly Cost Estimate (Development)
+
+| Service | Resource | Cost |
+|---------|----------|------|
+| **Compute** | EC2 t3.small (24/7) | ~$15/month |
+| **Database** | RDS t3.small (24/7) | ~$25/month |
+| **Storage** | S3 Standard (10GB) | ~$0.23/month |
+| **Network** | Elastic IP (attached) | $0.00/month |
+| **Network** | Data Transfer (10GB out) | ~$0.90/month |
+| **DNS** | Route 53 Hosted Zone | $0.50/month |
+| **DNS** | Route 53 Queries (1M) | ~$0.40/month |
+| **CDN** | CloudFront (10GB) | ~$0.85/month |
+| **CDN** | CloudFront Requests (1M) | ~$0.10/month |
+| **SSL** | ACM Certificate | $0.00/month |
+| **SSL** | Let's Encrypt | $0.00/month |
+| **CI/CD** | CodeBuild (100 min/month) | ~$1.00/month |
+| **CI/CD** | CodePipeline (5 pipelines) | $5.00/month |
+| **Container Registry** | ECR Storage (5GB) | ~$0.50/month |
+| **Total** | | **~$50/month** |
+
+### Cost Optimization Tips
+
+1. **Stop EC2 when not in use:**
+   ```bash
+   aws ec2 stop-instances --instance-ids i-xxxxx --profile geo
+   ```
+   Note: Elastic IP charges $0.005/hour when not attached
+
+2. **Use Auto-Scaling for RDS:**
+   - Set minimum storage to 20GB
+   - Enable storage auto-scaling
+
+3. **Implement S3 Lifecycle Policies:**
+   - Delete old artifacts after 7 days
+   - Move media files to S3 Glacier after 30 days
+
+4. **Use CloudFront Price Class:**
+   - PriceClass_100 (cheapest) for dev
+   - PriceClass_200 for production
+
+---
+
+## Additional Resources
+
+### Terraform Outputs
+
+```bash
+# View all outputs
+terraform output
+
+# Specific outputs
+terraform output backend_elastic_ip
+terraform output database_endpoint
+terraform output application_urls
+terraform output nameservers
+terraform output ssh_connection_command
+```
+
+### Useful AWS CLI Commands
+
+```bash
+# List EC2 instances
+aws ec2 describe-instances --profile geo
+
+# List RDS instances
+aws rds describe-db-instances --profile geo
+
+# List S3 buckets
+aws s3 ls --profile geo
+
+# List CodePipelines
+aws codepipeline list-pipelines --profile geo
+
+# View CloudFront distributions
+aws cloudfront list-distributions --profile geo
+```
+
+### SSH Commands
+
+```bash
+# Connect to EC2
+ssh -i ./geo-dev-backend-key.pem ec2-user@ELASTIC_IP
+
+# Database tunnel
+ssh -i ./geo-dev-backend-key.pem -L 5432:DB_ENDPOINT:5432 ec2-user@ELASTIC_IP
+
+# Copy files to EC2
+scp -i ./geo-dev-backend-key.pem file.txt ec2-user@ELASTIC_IP:/home/ec2-user/
+```
+
+---
+
+## Support & Contribution
+
+### Getting Help
+
+1. Check this README thoroughly
+2. Review AWS Console for error messages
+3. Check Terraform state and plan output
+4. Review application logs on EC2
+
+### Project Structure
+
+```
+terraform-infra-python/
+├── modules/                    # Reusable Terraform modules
+│   ├── network/               # VPC, subnets, routing
+│   ├── backend/               # EC2, security groups, IAM
+│   ├── database/              # RDS PostgreSQL
+│   ├── s3/                    # S3 buckets, CloudFront
+│   ├── cicd/                  # CodePipeline, Build, Deploy
+│   ├── frontend/              # S3 + CloudFront for React
+│   ├── frontend-cicd/         # React deployment pipeline
+│   └── acm-certificate/       # Route 53, ACM, DNS
+├── stacks/
+│   └── geo/
+│       └── development/       # Development environment
+│           ├── main.tf        # Module composition
+│           ├── variables.tf   # Input variables
+│           ├── outputs.tf     # Output values
+│           ├── providers.tf   # AWS provider config
+│           └── terraform.tfvars  # Variable values (gitignored)
+└── README.md                  # This file
+```
+
+---
+
+## License
+
+This infrastructure code is proprietary. All rights reserved.
+
+---
+
+**Last Updated:** 2025-09-30
