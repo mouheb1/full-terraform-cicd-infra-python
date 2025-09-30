@@ -133,3 +133,16 @@ variable "backend_projects" {
     }
   ]
 }
+
+# DNS and Domain Configuration
+variable "domain_name" {
+  description = "The domain name to use for DNS setup (e.g., mydomain.com). Leave empty to skip DNS configuration"
+  type        = string
+  default     = ""
+}
+
+variable "enable_route53" {
+  description = "Whether to create Route 53 DNS records"
+  type        = bool
+  default     = false
+}

@@ -27,3 +27,8 @@ output "website_url" {
   description = "URL of the React application"
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
+
+output "cloudfront_hosted_zone_id" {
+  description = "CloudFront distribution hosted zone ID (for Route 53 alias records)"
+  value       = aws_cloudfront_distribution.frontend.hosted_zone_id
+}

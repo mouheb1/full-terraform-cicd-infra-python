@@ -57,6 +57,26 @@ module "shared_infrastructure" {
   }
 }
 
+# ACM Certificate and Route 53 for frontend domain (conditional)
+module "acm_certificate" {
+  count  = var.enable_route53 && var.domain_name != "" ? 1 : 0
+  source = "../../../modules/acm-certificate"
+
+  domain_name = var.domain_name
+  namespace   = "geo"
+  environment = "dev"
+
+  tags = {
+    namespace = "geo"
+  }
+
+  providers = {
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  depends_on = [module.shared_infrastructure]
+}
+
 # Additional CI/CD pipeline for second backend
 module "geo_secondback_cicd" {
   source        = "../../../modules/cicd"
@@ -135,10 +155,17 @@ module "geo_frontend" {
   environment = "dev"
   namespace   = "geo"
 
+  # Custom domain and certificate (only if DNS is enabled)
+  domain_name     = var.enable_route53 && var.domain_name != "" ? var.domain_name : ""
+  certificate_arn = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].certificate_arn : ""
+  hosted_zone_id  = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].hosted_zone_id : ""
+
   tags = {
     namespace = "geo"
     type      = "frontend"
   }
+
+  depends_on = [module.acm_certificate]
 }
 
 # Frontend CI/CD pipeline for React app
@@ -160,9 +187,9 @@ module "geo_frontend_cicd" {
   cloudfront_distribution_id  = module.geo_frontend.cloudfront_distribution_id
   cloudfront_distribution_arn = module.geo_frontend.cloudfront_distribution_arn
 
-  # Backend endpoints for React app
+  # Backend endpoints for React app - use Elastic IP (static)
   backend_public_dns = module.shared_infrastructure.backend_public_dns
-  backend_public_ip  = module.shared_infrastructure.backend_public_ip
+  backend_public_ip  = module.shared_infrastructure.backend_elastic_ip
 
   tags = {
     namespace = "geo"

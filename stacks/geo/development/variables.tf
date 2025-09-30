@@ -25,3 +25,16 @@ variable "jwt_secret_key" {
   default     = ""
   sensitive   = true
 }
+
+# Domain configuration
+variable "domain_name" {
+  description = "Domain name for DNS setup (e.g., mydomain.com). Leave empty to skip DNS configuration"
+  type        = string
+  default     = ""
+}
+
+variable "enable_route53" {
+  description = "Enable Route 53 DNS configuration"
+  type        = bool
+  default     = false
+}

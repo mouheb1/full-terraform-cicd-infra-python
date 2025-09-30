@@ -252,3 +252,42 @@ terraform apply -target=module.geo_authback_cicd -auto-approve
 terraform apply -target=module.geo_frontend -auto-approve
 terraform apply -target=module.geo_frontend_cicd -auto-approve
 ```
+
+## DNS Configuration (Optional)
+
+The infrastructure supports custom domain configuration using Route 53 and OVH domains:
+
+### Domain Setup
+- **`api.yourdomain.com`** → EC2 instance (auth backend on port 5002)
+- **`yourdomain.com`** → CloudFront distribution (React frontend)
+
+### Configuration Steps
+1. **Enable DNS in terraform.tfvars**:
+   ```hcl
+   domain_name    = "mydomain.com"
+   enable_route53 = true
+   ```
+
+2. **Deploy and get nameservers**:
+   ```bash
+   terraform apply
+   terraform output nameservers
+   ```
+
+3. **Configure OVH domain** to use Route 53 nameservers
+
+4. **Wait for DNS propagation** (15-60 minutes)
+
+### Auto-updating on EC2 IP Changes
+When EC2 IP changes (stop/start):
+1. Run `terraform apply`
+2. Route 53 updates automatically
+3. DNS propagation takes 1-2 minutes (TTL=60s)
+4. Brief connectivity issues resolve automatically
+
+For complete setup instructions, see [DNS_SETUP_GUIDE.md](DNS_SETUP_GUIDE.md).
+
+### Cost Impact
+- Route 53 Hosted Zone: **$0.50/month**
+- DNS Queries: **~$0.40/month**
+- **Total DNS cost: ~$1/month**

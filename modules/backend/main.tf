@@ -193,3 +193,15 @@ resource "aws_instance" "backend" {
     App  = "backend"
   })
 }
+
+# Elastic IP for static public IP address
+resource "aws_eip" "backend" {
+  domain   = "vpc"
+  instance = aws_instance.backend.id
+
+  tags = merge(local.tags, {
+    Name = "${var.namespace}-${var.environment}-backend-eip"
+  })
+
+  depends_on = [aws_instance.backend]
+}

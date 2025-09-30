@@ -1,0 +1,22 @@
+# Database configuration
+db_username = "geo_dev"
+db_password = "your-secure-database-password"
+
+# Application secrets
+django_secret_key = "your-django-secret-key-here"
+jwt_secret_key    = "your-jwt-secret-key-here"
+
+# Domain configuration (optional)
+# Uncomment and configure these to enable Route 53 DNS setup
+# domain_name    = "mydomain.com"  # Replace with your OVH domain
+# enable_route53 = true
+
+# After enabling DNS:
+# 1. Run: terraform apply
+# 2. Copy the nameservers from the output
+# 3. Configure them in your OVH domain control panel
+# 4. Wait for DNS propagation (15-60 minutes)
+#
+# This will create:
+# - api.mydomain.com → EC2 instance (auth backend on port 5002)
+# - mydomain.com → CloudFront distribution (React frontend)

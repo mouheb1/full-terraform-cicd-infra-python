@@ -82,3 +82,5 @@ module "s3" {
 
   tags = local.tags
 }
+
+# Route 53 DNS configuration removed - using Elastic IP for backend instead

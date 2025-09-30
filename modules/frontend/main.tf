@@ -171,9 +171,15 @@ resource "aws_cloudfront_distribution" "frontend" {
   # Use cheapest price class for development
   price_class = var.environment == "prod" ? "PriceClass_All" : "PriceClass_100"
 
+  # Custom domain aliases (only if domain is provided)
+  aliases = var.domain_name != "" ? [var.domain_name, "*.${var.domain_name}"] : []
+
   # SSL certificate
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.certificate_arn == ""
+    acm_certificate_arn            = var.certificate_arn != "" ? var.certificate_arn : null
+    ssl_support_method             = var.certificate_arn != "" ? "sni-only" : null
+    minimum_protocol_version       = var.certificate_arn != "" ? "TLSv1.2_2021" : null
   }
 
   tags = merge(var.tags, {
@@ -211,4 +217,32 @@ data "aws_iam_policy_document" "frontend_cloudfront_oac" {
 resource "aws_s3_bucket_policy" "frontend_cloudfront_oac" {
   bucket = aws_s3_bucket.frontend.id
   policy = data.aws_iam_policy_document.frontend_cloudfront_oac.json
+}
+
+# Route 53 A record pointing domain to CloudFront (only if domain and hosted zone are provided)
+resource "aws_route53_record" "frontend" {
+  count   = var.domain_name != "" && var.hosted_zone_id != "" ? 1 : 0
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# Route 53 A record for wildcard subdomain (optional)
+resource "aws_route53_record" "frontend_wildcard" {
+  count   = var.domain_name != "" && var.hosted_zone_id != "" ? 1 : 0
+  zone_id = var.hosted_zone_id
+  name    = "*.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
 }

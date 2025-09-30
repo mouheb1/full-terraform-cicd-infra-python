@@ -4,13 +4,23 @@ output "instance_id" {
 }
 
 output "instance_public_ip" {
-  description = "Public IP address of the EC2 instance"
+  description = "Public IP address of the EC2 instance (original, changes on restart)"
   value       = aws_instance.backend.public_ip
 }
 
 output "instance_public_dns" {
   description = "Public DNS name of the EC2 instance"
   value       = aws_instance.backend.public_dns
+}
+
+output "elastic_ip" {
+  description = "Static Elastic IP address of the EC2 instance"
+  value       = aws_eip.backend.public_ip
+}
+
+output "elastic_ip_allocation_id" {
+  description = "Allocation ID of the Elastic IP"
+  value       = aws_eip.backend.id
 }
 
 output "security_group_id" {
@@ -41,13 +51,13 @@ output "ssh_key_name" {
 
 # SSH connection details
 output "ssh_connection_command" {
-  description = "SSH command to connect to the EC2 instance"
-  value       = "ssh -i ${local_file.backend_private_key.filename} ec2-user@${aws_instance.backend.public_ip}"
+  description = "SSH command to connect to the EC2 instance using Elastic IP"
+  value       = "ssh -i ${local_file.backend_private_key.filename} ec2-user@${aws_eip.backend.public_ip}"
 }
 
 output "ssh_tunnel_command" {
-  description = "SSH tunnel command for database access"
-  value       = "ssh -i ${local_file.backend_private_key.filename} -L 5432:${split(":", var.db_host)[0]}:${var.db_port} ec2-user@${aws_instance.backend.public_ip}"
+  description = "SSH tunnel command for database access using Elastic IP"
+  value       = "ssh -i ${local_file.backend_private_key.filename} -L 5432:${split(":", var.db_host)[0]}:${var.db_port} ec2-user@${aws_eip.backend.public_ip}"
 }
 
 # Debug outputs to verify split function

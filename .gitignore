@@ -49,3 +49,4 @@ terraform.rc
 # Ignore demo application folder (should be in separate repo)
 demo-back/
 *.pem
+tmp/

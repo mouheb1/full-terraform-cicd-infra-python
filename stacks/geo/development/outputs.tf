@@ -5,8 +5,13 @@ output "vpc_id" {
 }
 
 output "backend_public_ip" {
-  description = "Public IP address of the backend EC2 instance"
+  description = "Public IP address of the backend EC2 instance (original, changes on restart)"
   value       = module.shared_infrastructure.backend_public_ip
+}
+
+output "backend_elastic_ip" {
+  description = "Static Elastic IP address of the backend EC2 instance - USE THIS FOR API CALLS"
+  value       = module.shared_infrastructure.backend_elastic_ip
 }
 
 output "backend_public_dns" {
@@ -83,4 +88,36 @@ output "frontend_cloudfront_domain" {
 output "frontend_codepipeline_name" {
   description = "CodePipeline name for the React app"
   value       = module.geo_frontend_cicd.codepipeline_name
+}
+
+# DNS outputs (conditional)
+output "nameservers" {
+  description = "Route 53 nameservers to configure for your domain registrar"
+  value       = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].nameservers : []
+}
+
+output "hosted_zone_id" {
+  description = "Route 53 hosted zone ID"
+  value       = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].hosted_zone_id : ""
+}
+
+output "certificate_arn" {
+  description = "ARN of the ACM certificate for CloudFront"
+  value       = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].certificate_arn : ""
+}
+
+output "frontend_domain" {
+  description = "Custom domain for the frontend"
+  value       = var.enable_route53 && var.domain_name != "" ? var.domain_name : ""
+}
+
+# Combined domain URLs for easy access
+output "application_urls" {
+  description = "All application URLs"
+  value = {
+    frontend_cloudfront = module.geo_frontend.website_url
+    frontend_custom     = var.enable_route53 && var.domain_name != "" ? "https://${var.domain_name}" : "Not configured"
+    backend_elastic_ip  = "http://${module.shared_infrastructure.backend_elastic_ip}:5002"
+    backend_note        = "Frontend should call backend APIs using Elastic IP directly (no DNS)"
+  }
 }

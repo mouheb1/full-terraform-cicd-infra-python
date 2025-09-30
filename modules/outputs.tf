@@ -19,8 +19,13 @@ output "backend_instance_id" {
 }
 
 output "backend_public_ip" {
-  description = "Public IP address of the backend EC2 instance"
+  description = "Public IP address of the backend EC2 instance (changes on restart)"
   value       = module.backend.instance_public_ip
+}
+
+output "backend_elastic_ip" {
+  description = "Static Elastic IP address of the backend EC2 instance"
+  value       = module.backend.elastic_ip
 }
 
 output "backend_public_dns" {
@@ -106,3 +111,5 @@ output "s3_vpc_endpoint_id" {
   description = "S3 VPC endpoint ID"
   value       = module.s3.vpc_endpoint_id
 }
+
+# Route 53 DNS outputs removed - using Elastic IP for backend instead
