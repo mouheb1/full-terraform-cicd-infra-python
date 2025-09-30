@@ -181,7 +181,7 @@ resource "aws_codebuild_project" "frontend" {
 
     environment_variable {
       name  = "VITE_AUTH_BACKEND_URL"
-      value = "http://${var.backend_public_ip}:5002"
+      value = var.api_domain != "" ? "https://${var.api_domain}" : "http://${var.backend_public_ip}:5002"
     }
 
     environment_variable {

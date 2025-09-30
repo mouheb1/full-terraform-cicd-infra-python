@@ -50,3 +50,13 @@ resource "aws_acm_certificate_validation" "cloudfront" {
   certificate_arn         = aws_acm_certificate.cloudfront.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
+
+# Route 53 A record for API subdomain (points to EC2 Elastic IP)
+resource "aws_route53_record" "api" {
+  count   = var.backend_elastic_ip != "" ? 1 : 0
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [var.backend_elastic_ip]
+}

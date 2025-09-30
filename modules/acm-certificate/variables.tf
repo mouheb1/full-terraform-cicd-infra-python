@@ -18,3 +18,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "backend_elastic_ip" {
+  description = "Backend EC2 Elastic IP for API subdomain"
+  type        = string
+  default     = ""
+}

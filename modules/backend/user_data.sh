@@ -169,4 +169,39 @@ chown ec2-user:ec2-user ${project.path}/.env
 echo "Created .env file for ${project.name} at ${project.path}/.env"
 %{ endfor }
 
-echo "EC2 setup completed" > /var/log/user-data.log
+# Install Nginx (using amazon-linux-extras for Amazon Linux 2)
+amazon-linux-extras install -y nginx1
+systemctl start nginx
+systemctl enable nginx
+
+# Install Certbot for Let's Encrypt SSL certificates (from EPEL repository)
+amazon-linux-extras install -y epel
+yum install -y certbot python3-certbot-nginx
+
+# Create Nginx configuration for API subdomain (reverse proxy to port 5002)
+cat > /etc/nginx/conf.d/api.conf << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name api.sabeeltech-esg.dev;
+
+    location / {
+        proxy_pass http://localhost:5002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
+# Test and reload Nginx configuration
+nginx -t && systemctl reload nginx
+
+# Note: SSL certificate will be obtained after DNS is configured
+# Run this command manually or via another script after DNS propagation:
+# certbot --nginx -d api.sabeeltech-esg.dev --non-interactive --agree-tos --email admin@sabeeltech-esg.dev
+
+# Setup automatic certificate renewal
+systemctl enable certbot-renew.timer
+
+echo "EC2 setup completed with Nginx" > /var/log/user-data.log

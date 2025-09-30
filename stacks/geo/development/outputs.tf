@@ -111,13 +111,19 @@ output "frontend_domain" {
   value       = var.enable_route53 && var.domain_name != "" ? var.domain_name : ""
 }
 
+output "api_domain" {
+  description = "API domain for backend auth service (HTTPS)"
+  value       = var.enable_route53 && var.domain_name != "" ? "api.${var.domain_name}" : ""
+}
+
 # Combined domain URLs for easy access
 output "application_urls" {
   description = "All application URLs"
   value = {
     frontend_cloudfront = module.geo_frontend.website_url
     frontend_custom     = var.enable_route53 && var.domain_name != "" ? "https://${var.domain_name}" : "Not configured"
+    api_https           = var.enable_route53 && var.domain_name != "" ? "https://api.${var.domain_name}" : "Not configured"
     backend_elastic_ip  = "http://${module.shared_infrastructure.backend_elastic_ip}:5002"
-    backend_note        = "Frontend should call backend APIs using Elastic IP directly (no DNS)"
+    backend_note        = "Use api_https for production (HTTPS). backend_elastic_ip for testing only (HTTP)"
   }
 }

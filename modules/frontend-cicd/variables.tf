@@ -59,6 +59,12 @@ variable "backend_public_ip" {
   type        = string
 }
 
+variable "api_domain" {
+  description = "API domain name for auth backend (e.g., api.sabeeltech-esg.dev)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

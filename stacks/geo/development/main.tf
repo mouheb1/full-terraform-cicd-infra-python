@@ -62,9 +62,10 @@ module "acm_certificate" {
   count  = var.enable_route53 && var.domain_name != "" ? 1 : 0
   source = "../../../modules/acm-certificate"
 
-  domain_name = var.domain_name
-  namespace   = "geo"
-  environment = "dev"
+  domain_name        = var.domain_name
+  backend_elastic_ip = module.shared_infrastructure.backend_elastic_ip
+  namespace          = "geo"
+  environment        = "dev"
 
   tags = {
     namespace = "geo"
@@ -190,6 +191,7 @@ module "geo_frontend_cicd" {
   # Backend endpoints for React app - use Elastic IP (static)
   backend_public_dns = module.shared_infrastructure.backend_public_dns
   backend_public_ip  = module.shared_infrastructure.backend_elastic_ip
+  api_domain         = var.enable_route53 && var.domain_name != "" ? "api.${var.domain_name}" : ""
 
   tags = {
     namespace = "geo"
