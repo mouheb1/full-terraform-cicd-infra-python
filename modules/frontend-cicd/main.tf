@@ -186,17 +186,17 @@ resource "aws_codebuild_project" "frontend" {
 
     environment_variable {
       name  = "VITE_MAIN_BACKEND_URL"
-      value = "http://${var.backend_public_ip}:8000"
+      value = var.api1_domain != "" ? "https://${var.api1_domain}" : "http://${var.backend_public_ip}:8000"
     }
 
     environment_variable {
       name  = "VITE_SECOND_BACKEND_URL"
-      value = "http://${var.backend_public_ip}:5000"
+      value = var.api2_domain != "" ? "https://${var.api2_domain}" : "http://${var.backend_public_ip}:5000"
     }
 
     environment_variable {
       name  = "VITE_THIRD_BACKEND_URL"
-      value = "http://${var.backend_public_ip}:5001"
+      value = var.api3_domain != "" ? "https://${var.api3_domain}" : "http://${var.backend_public_ip}:5001"
     }
   }
 

@@ -65,6 +65,24 @@ variable "api_domain" {
   default     = ""
 }
 
+variable "api1_domain" {
+  description = "API1 domain name for Django backend (e.g., api1.sabeeltech-esg.dev)"
+  type        = string
+  default     = ""
+}
+
+variable "api2_domain" {
+  description = "API2 domain name for reports backend (e.g., api2.sabeeltech-esg.dev)"
+  type        = string
+  default     = ""
+}
+
+variable "api3_domain" {
+  description = "API3 domain name for service backend (e.g., api3.sabeeltech-esg.dev)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

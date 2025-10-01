@@ -192,6 +192,9 @@ module "geo_frontend_cicd" {
   backend_public_dns = module.shared_infrastructure.backend_public_dns
   backend_public_ip  = module.shared_infrastructure.backend_elastic_ip
   api_domain         = var.enable_route53 && var.domain_name != "" ? "api.${var.domain_name}" : ""
+  api1_domain        = var.enable_route53 && var.domain_name != "" ? "api1.${var.domain_name}" : ""
+  api2_domain        = var.enable_route53 && var.domain_name != "" ? "api2.${var.domain_name}" : ""
+  api3_domain        = var.enable_route53 && var.domain_name != "" ? "api3.${var.domain_name}" : ""
 
   tags = {
     namespace = "geo"

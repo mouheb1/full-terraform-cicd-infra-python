@@ -51,11 +51,41 @@ resource "aws_acm_certificate_validation" "cloudfront" {
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
-# Route 53 A record for API subdomain (points to EC2 Elastic IP)
+# Route 53 A record for API subdomain (points to EC2 Elastic IP - port 5002 Auth)
 resource "aws_route53_record" "api" {
   count   = var.backend_elastic_ip != "" ? 1 : 0
   zone_id = aws_route53_zone.main.zone_id
   name    = "api.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [var.backend_elastic_ip]
+}
+
+# Route 53 A record for API1 subdomain (points to EC2 Elastic IP - port 8000 Django)
+resource "aws_route53_record" "api1" {
+  count   = var.backend_elastic_ip != "" ? 1 : 0
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "api1.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [var.backend_elastic_ip]
+}
+
+# Route 53 A record for API2 subdomain (points to EC2 Elastic IP - port 5000 Reports)
+resource "aws_route53_record" "api2" {
+  count   = var.backend_elastic_ip != "" ? 1 : 0
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "api2.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [var.backend_elastic_ip]
+}
+
+# Route 53 A record for API3 subdomain (points to EC2 Elastic IP - port 5001 Service)
+resource "aws_route53_record" "api3" {
+  count   = var.backend_elastic_ip != "" ? 1 : 0
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "api3.${var.domain_name}"
   type    = "A"
   ttl     = 300
   records = [var.backend_elastic_ip]

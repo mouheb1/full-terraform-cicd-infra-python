@@ -66,24 +66,30 @@ terraform output backend_elastic_ip
 │  │ Route 53 (DNS)                                         │  │
 │  │ - sabeeltech-esg.dev → CloudFront                     │  │
 │  │ - api.sabeeltech-esg.dev → EC2 Elastic IP            │  │
+│  │ - api1.sabeeltech-esg.dev → EC2 Elastic IP           │  │
+│  │ - api2.sabeeltech-esg.dev → EC2 Elastic IP           │  │
+│  │ - api3.sabeeltech-esg.dev → EC2 Elastic IP           │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                        ↓                ↓                     │
 │  ┌─────────────────────────┐  ┌────────────────────────────┐│
 │  │ CloudFront (HTTPS)      │  │ Nginx Reverse Proxy        ││
 │  │ + ACM Certificate       │  │ + Let's Encrypt SSL        ││
-│  │ (Frontend)              │  │ (API Gateway)              ││
+│  │ (Frontend)              │  │ (All 4 API Endpoints)      ││
 │  └─────────────────────────┘  └────────────────────────────┘│
-│              ↓                            ↓                   │
-│  ┌─────────────────────────┐  ┌────────────────────────────┐│
-│  │ S3 Bucket               │  │ EC2 t3.small               ││
-│  │ (React Static Files)    │  │ Elastic IP: Static         ││
-│  │                         │  │ ┌────────────────────────┐ ││
-│  └─────────────────────────┘  │ │ Docker Containers:     │ ││
-│                                │ │ - Django (8000)        │ ││
-│  ┌─────────────────────────┐  │ │ - Flask Auth (5002)    │ ││
-│  │ RDS PostgreSQL          │◄─┤ │ - Flask Reports (5000) │ ││
-│  │ (Shared Database)       │  │ │ - Flask Service (5001) │ ││
-│  └─────────────────────────┘  │ └────────────────────────┘ ││
+│              ↓                   ↓      ↓      ↓      ↓      │
+│  ┌─────────────────────────┐  api   api1   api2   api3     │
+│  │ S3 Bucket               │  :5002  :8000  :5000  :5001    │
+│  │ (React Static Files)    │    ↓      ↓      ↓      ↓      │
+│  │                         │  ┌────────────────────────────┐│
+│  └─────────────────────────┘  │ EC2 t3.small               ││
+│                                │ Elastic IP: Static         ││
+│  ┌─────────────────────────┐  │ ┌────────────────────────┐ ││
+│  │ RDS PostgreSQL          │◄─┤ │ Docker Containers:     │ ││
+│  │ (Shared Database)       │  │ │ - Flask Auth (5002)    │ ││
+│  └─────────────────────────┘  │ │ - Django (8000)        │ ││
+│                                │ │ - Flask Reports (5000) │ ││
+│                                │ │ - Flask Service (5001) │ ││
+│                                │ └────────────────────────┘ ││
 │                                └────────────────────────────┘│
 │  ┌──────────────────────────────────────────────────────────┐│
 │  │ CI/CD Pipeline (per service)                             ││
@@ -99,10 +105,10 @@ terraform output backend_elastic_ip
 - Custom Domain: `https://sabeeltech-esg.dev`
 
 **Backend APIs:**
-- Auth (HTTPS): `https://api.sabeeltech-esg.dev`
-- Django (HTTP): `http://ELASTIC_IP:8000`
-- Reports (HTTP): `http://ELASTIC_IP:5000`
-- Service (HTTP): `http://ELASTIC_IP:5001`
+- Auth (HTTPS): `https://api.sabeeltech-esg.dev` (Port 5002)
+- Django (HTTPS): `https://api1.sabeeltech-esg.dev` (Port 8000)
+- Reports (HTTPS): `https://api2.sabeeltech-esg.dev` (Port 5000)
+- Service (HTTPS): `https://api3.sabeeltech-esg.dev` (Port 5001)
 
 ---
 
@@ -331,7 +337,7 @@ The GitHub integration requires one-time manual approval:
 
 #### Step 4: Monitor SSL Certificate Setup
 
-The EC2 instance automatically sets up SSL for the API:
+The EC2 instance automatically sets up SSL for all API subdomains:
 
 ```bash
 # SSH to EC2
@@ -343,12 +349,15 @@ sudo tail -f /var/log/ssl-cert-setup.log
 # Check service status
 sudo systemctl status ssl-cert-setup.service
 sudo systemctl status nginx
+
+# Verify all domains are in the certificate
+sudo certbot certificates
 ```
 
 **Automation waits for:**
-1. DNS propagation (api.sabeeltech-esg.dev resolves correctly)
-2. Obtains Let's Encrypt certificate
-3. Configures Nginx with HTTPS
+1. DNS propagation for all 4 domains (api, api1, api2, api3)
+2. Obtains single Let's Encrypt certificate covering all domains
+3. Configures Nginx with HTTPS for all 4 subdomains
 4. Self-disables after success
 
 #### Step 5: Verify Deployment
@@ -360,11 +369,11 @@ terraform output application_urls
 # Test frontend
 curl -I https://sabeeltech-esg.dev
 
-# Test backend API (HTTPS)
+# Test backend APIs (all HTTPS)
 curl -I https://api.sabeeltech-esg.dev
-
-# Test other backends (HTTP)
-curl -I http://$(terraform output -raw backend_elastic_ip):8000
+curl -I https://api1.sabeeltech-esg.dev
+curl -I https://api2.sabeeltech-esg.dev
+curl -I https://api3.sabeeltech-esg.dev
 ```
 
 ---
@@ -373,21 +382,18 @@ curl -I http://$(terraform output -raw backend_elastic_ip):8000
 
 ### Update Frontend Configuration
 
-Your React app needs to call the HTTPS API:
+Your React app automatically uses HTTPS API endpoints via the CI/CD pipeline:
 
 ```javascript
-// src/config.js or .env
-export const API_BASE_URL = 'https://api.sabeeltech-esg.dev';
-
 // For Vite projects
-// .env
+// .env (automatically injected by CodeBuild)
 VITE_AUTH_BACKEND_URL=https://api.sabeeltech-esg.dev
-VITE_MAIN_BACKEND_URL=http://ELASTIC_IP:8000
-VITE_SECOND_BACKEND_URL=http://ELASTIC_IP:5000
-VITE_THIRD_BACKEND_URL=http://ELASTIC_IP:5001
+VITE_MAIN_BACKEND_URL=https://api1.sabeeltech-esg.dev
+VITE_SECOND_BACKEND_URL=https://api2.sabeeltech-esg.dev
+VITE_THIRD_BACKEND_URL=https://api3.sabeeltech-esg.dev
 ```
 
-**Note:** Auth backend uses HTTPS (port 5002 via Nginx). Other backends use HTTP with direct Elastic IP access.
+**Note:** All backend APIs now use HTTPS with SSL certificates via Nginx reverse proxy and Let's Encrypt.
 
 ### Deploy Applications
 
@@ -446,11 +452,12 @@ psql -h localhost -p 5432 -U postgres -d geo_dev
 #### What Works Automatically
 
 1. ✅ **Elastic IP** - Recreated and attached
-2. ✅ **Route 53 & DNS** - Hosted zone and records recreated
+2. ✅ **Route 53 & DNS** - Hosted zone and A records for all 4 API subdomains recreated
 3. ✅ **ACM Certificate** - Recreated and validated automatically
-4. ✅ **Let's Encrypt SSL** - Automated systemd service obtains certificate
+4. ✅ **Let's Encrypt SSL** - Automated systemd service obtains certificate for all 4 domains
 5. ✅ **CloudFront** - Recreated with custom domain
-6. ✅ **All Modules** - Recreated exactly as configured
+6. ✅ **Nginx Configuration** - All 4 API subdomains configured with HTTPS
+7. ✅ **All Modules** - Recreated exactly as configured
 
 #### Manual Steps Required
 
@@ -502,9 +509,12 @@ terraform output nameservers
 ssh -i ./geo-dev-backend-key.pem ec2-user@$(terraform output -raw backend_elastic_ip)
 sudo tail -f /var/log/ssl-cert-setup.log
 
-# 7. Test
+# 7. Test all endpoints
 curl -I https://sabeeltech-esg.dev
 curl -I https://api.sabeeltech-esg.dev
+curl -I https://api1.sabeeltech-esg.dev
+curl -I https://api2.sabeeltech-esg.dev
+curl -I https://api3.sabeeltech-esg.dev
 ```
 
 **Timeline:**
@@ -557,27 +567,38 @@ aws acm describe-certificate \
    nslookup sabeeltech-esg.dev 8.8.8.8
    ```
 
-### SSL Certificate Not Obtained (api.domain.com)
+### SSL Certificate Not Obtained
 
-**Symptoms:** `https://api.sabeeltech-esg.dev` not working
+**Symptoms:** HTTPS not working for api subdomains (`ERR_CERT_COMMON_NAME_INVALID`)
 
 **Solutions:**
-1. Check DNS resolution:
+1. Check DNS resolution for all domains:
    ```bash
    nslookup api.sabeeltech-esg.dev
+   nslookup api1.sabeeltech-esg.dev
+   nslookup api2.sabeeltech-esg.dev
+   nslookup api3.sabeeltech-esg.dev
    ```
 2. Check SSL setup logs:
    ```bash
    ssh -i ./geo-dev-backend-key.pem ec2-user@ELASTIC_IP
    sudo cat /var/log/ssl-cert-setup.log
    ```
-3. Manually trigger SSL setup:
+3. Verify certificate includes all domains:
    ```bash
-   sudo /usr/local/bin/obtain-ssl-cert.sh
+   sudo certbot certificates
    ```
-4. Restart SSL service:
+4. Manually re-obtain certificate if needed:
    ```bash
-   sudo systemctl restart ssl-cert-setup.service
+   sudo systemctl stop nginx
+   sudo certbot delete --cert-name api.sabeeltech-esg.dev --non-interactive
+   sudo certbot certonly --standalone --preferred-challenges http \
+       -d api.sabeeltech-esg.dev \
+       -d api1.sabeeltech-esg.dev \
+       -d api2.sabeeltech-esg.dev \
+       -d api3.sabeeltech-esg.dev \
+       --non-interactive --agree-tos --email admin@sabeeltech-esg.dev
+   sudo systemctl start nginx
    ```
 
 ### Backend API Not Accessible

@@ -194,6 +194,54 @@ server {
 }
 NGINX_EOF
 
+# Create Nginx configuration for API1 subdomain (reverse proxy to port 8000 - Django)
+cat > /etc/nginx/conf.d/api1.conf << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name api1.sabeeltech-esg.dev;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
+# Create Nginx configuration for API2 subdomain (reverse proxy to port 5000 - Reports)
+cat > /etc/nginx/conf.d/api2.conf << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name api2.sabeeltech-esg.dev;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
+# Create Nginx configuration for API3 subdomain (reverse proxy to port 5001 - Service)
+cat > /etc/nginx/conf.d/api3.conf << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name api3.sabeeltech-esg.dev;
+
+    location / {
+        proxy_pass http://localhost:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
 # Test and reload Nginx configuration
 nginx -t && systemctl reload nginx
 
@@ -205,38 +253,49 @@ cat > /usr/local/bin/obtain-ssl-cert.sh << 'SSL_SCRIPT_EOF'
 LOG_FILE="/var/log/ssl-cert-setup.log"
 MAX_RETRIES=30
 RETRY_DELAY=60
-DOMAIN="api.sabeeltech-esg.dev"
+DOMAINS=("api.sabeeltech-esg.dev" "api1.sabeeltech-esg.dev" "api2.sabeeltech-esg.dev" "api3.sabeeltech-esg.dev")
 
-echo "$(date): Starting SSL certificate setup for $DOMAIN" >> $LOG_FILE
+echo "$(date): Starting SSL certificate setup for all domains" >> $LOG_FILE
 
 # Get the Elastic IP of this instance
 ELASTIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 echo "$(date): Instance Elastic IP: $ELASTIC_IP" >> $LOG_FILE
 
-# Wait for DNS to propagate
+# Wait for DNS to propagate for all domains
 for i in $(seq 1 $MAX_RETRIES); do
     echo "$(date): Checking DNS resolution (attempt $i/$MAX_RETRIES)..." >> $LOG_FILE
 
-    DNS_IP=$(dig +short $DOMAIN | head -n 1)
+    ALL_RESOLVED=true
+    for DOMAIN in "$${DOMAINS[@]}"; do
+        DNS_IP=$(dig +short $DOMAIN | head -n 1)
+        if [ "$DNS_IP" != "$ELASTIC_IP" ]; then
+            echo "$(date): $DOMAIN not yet propagated. Expected: $ELASTIC_IP, Got: $DNS_IP" >> $LOG_FILE
+            ALL_RESOLVED=false
+            break
+        fi
+    done
 
-    if [ "$DNS_IP" == "$ELASTIC_IP" ]; then
-        echo "$(date): DNS resolved correctly to $DNS_IP" >> $LOG_FILE
+    if [ "$ALL_RESOLVED" = true ]; then
+        echo "$(date): All DNS records resolved correctly" >> $LOG_FILE
 
         # Stop nginx temporarily to allow certbot standalone mode
         systemctl stop nginx
 
-        # Obtain SSL certificate
-        echo "$(date): Obtaining SSL certificate..." >> $LOG_FILE
+        # Obtain SSL certificate for all domains
+        echo "$(date): Obtaining SSL certificates..." >> $LOG_FILE
         certbot certonly --standalone --preferred-challenges http \
-            -d $DOMAIN \
+            -d api.sabeeltech-esg.dev \
+            -d api1.sabeeltech-esg.dev \
+            -d api2.sabeeltech-esg.dev \
+            -d api3.sabeeltech-esg.dev \
             --non-interactive \
             --agree-tos \
             --email admin@sabeeltech-esg.dev >> $LOG_FILE 2>&1
 
         if [ $? -eq 0 ]; then
-            echo "$(date): SSL certificate obtained successfully!" >> $LOG_FILE
+            echo "$(date): SSL certificates obtained successfully!" >> $LOG_FILE
 
-            # Update Nginx configuration to use HTTPS
+            # Update Nginx configuration to use HTTPS for api (port 5002)
             cat > /etc/nginx/conf.d/api.conf << 'NGINX_HTTPS_EOF'
 server {
     listen 80;
@@ -271,26 +330,129 @@ server {
 }
 NGINX_HTTPS_EOF
 
+            # Update Nginx configuration to use HTTPS for api1 (port 8000 - Django)
+            cat > /etc/nginx/conf.d/api1.conf << 'NGINX_HTTPS_EOF'
+server {
+    listen 80;
+    server_name api1.sabeeltech-esg.dev;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api1.sabeeltech-esg.dev;
+
+    ssl_certificate /etc/letsencrypt/live/api.sabeeltech-esg.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.sabeeltech-esg.dev/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+NGINX_HTTPS_EOF
+
+            # Update Nginx configuration to use HTTPS for api2 (port 5000 - Reports)
+            cat > /etc/nginx/conf.d/api2.conf << 'NGINX_HTTPS_EOF'
+server {
+    listen 80;
+    server_name api2.sabeeltech-esg.dev;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api2.sabeeltech-esg.dev;
+
+    ssl_certificate /etc/letsencrypt/live/api.sabeeltech-esg.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.sabeeltech-esg.dev/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+NGINX_HTTPS_EOF
+
+            # Update Nginx configuration to use HTTPS for api3 (port 5001 - Service)
+            cat > /etc/nginx/conf.d/api3.conf << 'NGINX_HTTPS_EOF'
+server {
+    listen 80;
+    server_name api3.sabeeltech-esg.dev;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api3.sabeeltech-esg.dev;
+
+    ssl_certificate /etc/letsencrypt/live/api.sabeeltech-esg.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.sabeeltech-esg.dev/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+NGINX_HTTPS_EOF
+
             # Test and start nginx
             nginx -t && systemctl start nginx
-            echo "$(date): Nginx restarted with HTTPS configuration" >> $LOG_FILE
+            echo "$(date): Nginx restarted with HTTPS configuration for all domains" >> $LOG_FILE
 
             # Disable this service so it doesn't run again
             systemctl disable ssl-cert-setup.service
 
             exit 0
         else
-            echo "$(date): Failed to obtain SSL certificate" >> $LOG_FILE
+            echo "$(date): Failed to obtain SSL certificates" >> $LOG_FILE
             systemctl start nginx
         fi
-    else
-        echo "$(date): DNS not yet propagated. Expected: $ELASTIC_IP, Got: $DNS_IP" >> $LOG_FILE
     fi
 
     sleep $RETRY_DELAY
 done
 
-echo "$(date): Failed to obtain SSL certificate after $MAX_RETRIES attempts" >> $LOG_FILE
+echo "$(date): Failed to obtain SSL certificates after $MAX_RETRIES attempts" >> $LOG_FILE
 systemctl start nginx
 exit 1
 SSL_SCRIPT_EOF
