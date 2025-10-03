@@ -146,6 +146,9 @@ FLASK_DEBUG=false
 PORT=5001
 HOST=0.0.0.0
 
+# Backend URLs (using Docker bridge network IPs)
+SECOND_BACK_URL=http://172.17.0.5:5000
+
 # Common Database Configuration
 DATABASE_URL=postgresql://${db_user}:${db_password}@${db_host}:${db_port}/${db_name}
 DB_HOST=${db_host}
