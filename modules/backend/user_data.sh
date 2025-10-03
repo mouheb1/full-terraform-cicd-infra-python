@@ -4,6 +4,28 @@ yum update -y
 # Install Python 3.11 and pip
 yum install -y python3 python3-pip
 
+# Wait for EBS volume to be attached
+echo "Waiting for EBS volume /dev/xvdf to be attached..."
+while [ ! -e /dev/xvdf ]; do
+  sleep 5
+done
+
+# Format and mount EBS volume for Docker data
+echo "Formatting and mounting EBS volume for Docker..."
+if ! blkid /dev/xvdf | grep -q ext4; then
+  mkfs -t ext4 /dev/xvdf
+fi
+
+# Create mount point
+mkdir -p /var/lib/docker
+
+# Mount the volume
+mount /dev/xvdf /var/lib/docker
+
+# Add to fstab for persistent mount after reboot
+DEVICE_UUID=$(blkid -s UUID -o value /dev/xvdf)
+echo "UUID=$DEVICE_UUID /var/lib/docker ext4 defaults,nofail 0 2" >> /etc/fstab
+
 # Install Docker
 yum install -y docker
 systemctl start docker
@@ -490,4 +512,32 @@ systemctl start ssl-cert-setup.service &
 # Setup automatic certificate renewal
 systemctl enable certbot-renew.timer
 
-echo "EC2 setup completed with Nginx and SSL certificate automation" > /var/log/user-data.log
+# Create Docker cleanup script to run every hour
+cat > /usr/local/bin/docker-cleanup.sh << 'DOCKER_CLEANUP_EOF'
+#!/bin/bash
+# Docker cleanup script - removes unused images older than 1 hour
+# Runs every hour via cron
+
+LOG_FILE="/var/log/docker-cleanup.log"
+echo "$(date): Starting Docker cleanup..." >> $LOG_FILE
+
+# Remove unused images older than 1 hour
+docker image prune -a -f --filter "until=1h" >> $LOG_FILE 2>&1
+
+# Remove dangling images, stopped containers, unused networks
+docker system prune -f >> $LOG_FILE 2>&1
+
+echo "$(date): Docker cleanup completed" >> $LOG_FILE
+echo "---" >> $LOG_FILE
+DOCKER_CLEANUP_EOF
+
+chmod +x /usr/local/bin/docker-cleanup.sh
+
+# Add cron job to run cleanup every hour
+echo "0 * * * * /usr/local/bin/docker-cleanup.sh" | crontab -
+
+# Start crond service if not already running
+systemctl enable crond
+systemctl start crond
+
+echo "EC2 setup completed with Nginx, SSL certificate automation, and Docker cleanup" > /var/log/user-data.log

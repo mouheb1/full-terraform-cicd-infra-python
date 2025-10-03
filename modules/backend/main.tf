@@ -205,3 +205,27 @@ resource "aws_eip" "backend" {
 
   depends_on = [aws_instance.backend]
 }
+
+# EBS volume for Docker data storage (20GB - within AWS free tier)
+resource "aws_ebs_volume" "docker_volume" {
+  availability_zone = aws_instance.backend.availability_zone
+  size              = 20
+  type              = "gp3"
+  encrypted         = false
+
+  tags = merge(local.tags, {
+    Name = "${var.namespace}-${var.environment}-docker-volume"
+    Purpose = "docker-data"
+  })
+}
+
+# Attach EBS volume to EC2 instance
+resource "aws_volume_attachment" "docker_volume_attachment" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.docker_volume.id
+  instance_id = aws_instance.backend.id
+
+  # Prevent Terraform from trying to detach volume on destroy
+  # This helps avoid issues during instance replacement
+  stop_instance_before_detaching = true
+}
