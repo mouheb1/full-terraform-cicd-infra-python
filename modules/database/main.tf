@@ -61,7 +61,7 @@ resource "aws_db_instance" "database" {
   db_name        = replace("${var.namespace}_${var.environment}", "-", "_")
   engine         = "postgres"
   engine_version = "17.4"        # Use stable version, not latest
-  instance_class = "db.t3.small" # Smallest instance
+  instance_class = "db.t3.micro" # Smallest instance
 
   # Storage - Minimum for cost optimization
   allocated_storage = 20 # Minimum for PostgreSQL
@@ -84,6 +84,7 @@ resource "aws_db_instance" "database" {
   maintenance_window      = "sun:04:00-sun:05:00"
   skip_final_snapshot     = true  # Skip final snapshot for dev
   deletion_protection     = false # Allow easy deletion for dev
+  apply_immediately       = true  # Apply changes immediately instead of waiting for maintenance window
 
   # Performance & Monitoring - Minimize for cost
   monitoring_interval      = 0 # Disable enhanced monitoring
