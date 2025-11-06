@@ -14,6 +14,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "create_route53_records" {
+  description = "Whether to create Route53 DNS records (must be determinable at plan time)"
+  type        = bool
+  default     = false
+}
+
 variable "domain_name" {
   description = "Custom domain name for CloudFront (e.g., sabeeltech-esg.dev)"
   type        = string

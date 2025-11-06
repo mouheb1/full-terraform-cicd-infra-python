@@ -157,9 +157,10 @@ module "geo_frontend" {
   namespace   = "geo"
 
   # Custom domain and certificate (only if DNS is enabled)
-  domain_name     = var.enable_route53 && var.domain_name != "" ? var.domain_name : ""
-  certificate_arn = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].certificate_arn : ""
-  hosted_zone_id  = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].hosted_zone_id : ""
+  create_route53_records = var.enable_route53 && var.domain_name != ""
+  domain_name            = var.enable_route53 && var.domain_name != "" ? var.domain_name : ""
+  certificate_arn        = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].certificate_arn : ""
+  hosted_zone_id         = var.enable_route53 && var.domain_name != "" ? module.acm_certificate[0].hosted_zone_id : ""
 
   tags = {
     namespace = "geo"

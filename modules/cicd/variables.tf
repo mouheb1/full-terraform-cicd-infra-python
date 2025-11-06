@@ -35,10 +35,17 @@ variable "application_port" {
   default     = 8000
 }
 
+variable "create_codestar_connection" {
+  description = "Whether to create a new CodeStar connection (true for first backend, false for additional backends)"
+  type        = bool
+  default     = true
+}
+
 variable "codestar_connection_arn" {
-  description = "ARN of the existing CodeStar connection (leave empty for primary backend)"
+  description = "ARN of the existing CodeStar connection (required when create_codestar_connection = false)"
   type        = string
-  default     = ""
+  default     = null
+  nullable    = true
 }
 
 # Note: github_token is no longer needed with CodeStar Connection (GitHub v2)

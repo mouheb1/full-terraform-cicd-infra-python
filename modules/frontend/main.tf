@@ -219,9 +219,9 @@ resource "aws_s3_bucket_policy" "frontend_cloudfront_oac" {
   policy = data.aws_iam_policy_document.frontend_cloudfront_oac.json
 }
 
-# Route 53 A record pointing domain to CloudFront (only if domain and hosted zone are provided)
+# Route 53 A record pointing domain to CloudFront (only if enabled)
 resource "aws_route53_record" "frontend" {
-  count   = var.domain_name != "" && var.hosted_zone_id != "" ? 1 : 0
+  count   = var.create_route53_records ? 1 : 0
   zone_id = var.hosted_zone_id
   name    = var.domain_name
   type    = "A"
@@ -235,7 +235,7 @@ resource "aws_route53_record" "frontend" {
 
 # Route 53 A record for wildcard subdomain (optional)
 resource "aws_route53_record" "frontend_wildcard" {
-  count   = var.domain_name != "" && var.hosted_zone_id != "" ? 1 : 0
+  count   = var.create_route53_records ? 1 : 0
   zone_id = var.hosted_zone_id
   name    = "*.${var.domain_name}"
   type    = "A"
