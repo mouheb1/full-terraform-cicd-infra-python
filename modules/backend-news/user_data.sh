@@ -127,23 +127,18 @@ server {
 }
 NGINX_EOF
 
-# Create Nginx configuration for api1 subdomain (WebSocket - Port 8765)
+# Create Nginx configuration for api1 subdomain (newsapp-backend REST API - Port 5000)
 cat > /etc/nginx/conf.d/api1.conf << 'NGINX_EOF'
 server {
     listen 80;
     server_name api1.newsaidemo.dev;
 
     location / {
-        proxy_pass http://localhost:8765;
+        proxy_pass http://localhost:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
     }
 }
 NGINX_EOF
@@ -237,14 +232,12 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
 
     location / {
-        proxy_pass http://localhost:8765;
+        proxy_pass http://localhost:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;

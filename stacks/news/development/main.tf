@@ -58,7 +58,7 @@ module "backend" {
   namespace         = "news"
   vpc_id            = module.network.vpc_id
   public_subnet_ids = module.network.public_subnet_ids
-  instance_type     = "t3.nano"
+  instance_type     = "t3.small"
   key_name          = null
 
   # Database connection
