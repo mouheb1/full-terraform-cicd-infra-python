@@ -23,8 +23,8 @@ mkdir -p /var/lib/docker
 mount /dev/xvdf /var/lib/docker
 
 # Add to fstab for persistent mount after reboot
-DEVICE_UUID=$$(blkid -s UUID -o value /dev/xvdf)
-echo "UUID=$$DEVICE_UUID /var/lib/docker ext4 defaults,nofail 0 2" >> /etc/fstab
+DEVICE_UUID=$(blkid -s UUID -o value /dev/xvdf)
+echo "UUID=$DEVICE_UUID /var/lib/docker ext4 defaults,nofail 0 2" >> /etc/fstab
 
 # Install Docker
 yum install -y docker
@@ -33,7 +33,7 @@ systemctl enable docker
 usermod -a -G docker ec2-user
 
 # Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$$(uname -s)-$$(uname -m)" -o /usr/local/bin/docker-compose
+curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
 # Install CodeDeploy agent
@@ -76,7 +76,7 @@ chown ec2-user:ec2-user ${project.path}
 # Create environment files for NEWS backend projects
 %{ for project in backend_projects }
 # Generic environment file for ${project.name}
-ENV_CONTENT=$$(cat << 'ENV_EOF'
+ENV_CONTENT=$(cat << 'ENV_EOF'
 # Flask Environment
 FLASK_ENV=${python_env}
 FLASK_DEBUG=false
@@ -97,7 +97,7 @@ ENVIRONMENT=${environment}
 ENV_EOF
 )
 
-echo "$$ENV_CONTENT" > ${project.path}/.env
+echo "$ENV_CONTENT" > ${project.path}/.env
 chown ec2-user:ec2-user ${project.path}/.env
 echo "Created .env file for ${project.name} at ${project.path}/.env"
 %{ endfor }
@@ -159,36 +159,36 @@ MAX_RETRIES=30
 RETRY_DELAY=60
 DOMAINS=("api.newsaidemo.dev" "api1.newsaidemo.dev")
 
-echo "$$(date): Starting SSL certificate setup for NEWS stack" >> $$LOG_FILE
-ELASTIC_IP=$$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
-echo "$$(date): Instance Elastic IP: $$ELASTIC_IP" >> $$LOG_FILE
+echo "$(date): Starting SSL certificate setup for NEWS stack" >> $LOG_FILE
+ELASTIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+echo "$(date): Instance Elastic IP: $ELASTIC_IP" >> $LOG_FILE
 
-for i in $$(seq 1 $$MAX_RETRIES); do
-    echo "$$(date): Checking DNS resolution (attempt $$i/$$MAX_RETRIES)..." >> $$LOG_FILE
+for i in $(seq 1 $MAX_RETRIES); do
+    echo "$(date): Checking DNS resolution (attempt $i/$MAX_RETRIES)..." >> $LOG_FILE
     ALL_RESOLVED=true
     for DOMAIN in "$${DOMAINS[@]}"; do
-        DNS_IP=$$(dig +short $$DOMAIN | head -n 1)
-        if [ "$$DNS_IP" != "$$ELASTIC_IP" ]; then
-            echo "$$(date): $$DOMAIN not propagated. Expected: $$ELASTIC_IP, Got: $$DNS_IP" >> $$LOG_FILE
+        DNS_IP=$(dig +short $DOMAIN | head -n 1)
+        if [ "$DNS_IP" != "$ELASTIC_IP" ]; then
+            echo "$(date): $DOMAIN not propagated. Expected: $ELASTIC_IP, Got: $DNS_IP" >> $LOG_FILE
             ALL_RESOLVED=false
             break
         fi
     done
 
-    if [ "$$ALL_RESOLVED" = true ]; then
-        echo "$$(date): All DNS records resolved correctly" >> $$LOG_FILE
+    if [ "$ALL_RESOLVED" = true ]; then
+        echo "$(date): All DNS records resolved correctly" >> $LOG_FILE
         systemctl stop nginx
 
-        echo "$$(date): Obtaining SSL certificates..." >> $$LOG_FILE
+        echo "$(date): Obtaining SSL certificates..." >> $LOG_FILE
         certbot certonly --standalone --preferred-challenges http \
             -d api.newsaidemo.dev \
             -d api1.newsaidemo.dev \
             --non-interactive \
             --agree-tos \
-            --email admin@newsaidemo.dev >> $$LOG_FILE 2>&1
+            --email admin@newsaidemo.dev >> $LOG_FILE 2>&1
 
-        if [ $$? -eq 0 ]; then
-            echo "$$(date): SSL certificates obtained successfully!" >> $$LOG_FILE
+        if [ $? -eq 0 ]; then
+            echo "$(date): SSL certificates obtained successfully!" >> $LOG_FILE
 
             cat > /etc/nginx/conf.d/api.conf << 'NGINX_HTTPS_EOF'
 server {
@@ -253,18 +253,18 @@ server {
 NGINX_HTTPS_EOF
 
             nginx -t && systemctl start nginx
-            echo "$$(date): Nginx restarted with HTTPS configuration" >> $$LOG_FILE
+            echo "$(date): Nginx restarted with HTTPS configuration" >> $LOG_FILE
             systemctl disable ssl-cert-setup.service
             exit 0
         else
-            echo "$$(date): Failed to obtain SSL certificates" >> $$LOG_FILE
+            echo "$(date): Failed to obtain SSL certificates" >> $LOG_FILE
             systemctl start nginx
         fi
     fi
-    sleep $$RETRY_DELAY
+    sleep $RETRY_DELAY
 done
 
-echo "$$(date): Failed to obtain SSL after $$MAX_RETRIES attempts" >> $$LOG_FILE
+echo "$(date): Failed to obtain SSL after $MAX_RETRIES attempts" >> $LOG_FILE
 systemctl start nginx
 exit 1
 SSL_SCRIPT_EOF
@@ -295,10 +295,10 @@ systemctl enable certbot-renew.timer
 cat > /usr/local/bin/docker-cleanup.sh << 'DOCKER_CLEANUP_EOF'
 #!/bin/bash
 LOG_FILE="/var/log/docker-cleanup.log"
-echo "$$(date): Starting Docker cleanup..." >> $$LOG_FILE
-docker image prune -a -f --filter "until=1h" >> $$LOG_FILE 2>&1
-docker system prune -f >> $$LOG_FILE 2>&1
-echo "$$(date): Docker cleanup completed" >> $$LOG_FILE
+echo "$(date): Starting Docker cleanup..." >> $LOG_FILE
+docker image prune -a -f --filter "until=1h" >> $LOG_FILE 2>&1
+docker system prune -f >> $LOG_FILE 2>&1
+echo "$(date): Docker cleanup completed" >> $LOG_FILE
 DOCKER_CLEANUP_EOF
 
 chmod +x /usr/local/bin/docker-cleanup.sh

@@ -58,7 +58,7 @@ module "backend" {
   namespace         = "news"
   vpc_id            = module.network.vpc_id
   public_subnet_ids = module.network.public_subnet_ids
-  instance_type     = "t3.small"
+  instance_type     = "t3.nano"
   key_name          = null
 
   # Database connection
@@ -92,7 +92,7 @@ module "backend" {
   }
 }
 
-# CI/CD for newsapp-backend (Flask REST API) - Creates CodeStar connection
+# CI/CD for newsapp-backend (Flask REST API) - Uses predefined CodeStar connection
 module "news_backend_cicd" {
   source           = "../../../modules/cicd"
   environment      = "dev"
@@ -105,7 +105,8 @@ module "news_backend_cicd" {
   github_branch = "main"
 
   backend_instance_id        = module.backend.instance_id
-  create_codestar_connection = true  # First backend creates the connection
+  create_codestar_connection = false  # Use predefined connection
+  codestar_connection_arn    = "arn:aws:codeconnections:us-east-1:299295683679:connection/dcb07804-8f74-4139-80a3-7a1459593f48"
 
   tags = {
     namespace = "news"
@@ -114,7 +115,7 @@ module "news_backend_cicd" {
   depends_on = [module.backend]
 }
 
-# CI/CD for newsapp-collector (RSS Feed Collector) - Reuses CodeStar connection
+# CI/CD for newsapp-collector (RSS Feed Collector) - Uses predefined CodeStar connection
 module "news_collector_cicd" {
   source           = "../../../modules/cicd"
   environment      = "dev"
@@ -127,14 +128,14 @@ module "news_collector_cicd" {
   github_branch = "main"
 
   backend_instance_id        = module.backend.instance_id
-  create_codestar_connection = false  # Reuse connection from first backend
-  codestar_connection_arn    = module.news_backend_cicd.codestar_connection_arn
+  create_codestar_connection = false  # Use predefined connection
+  codestar_connection_arn    = "arn:aws:codeconnections:us-east-1:299295683679:connection/dcb07804-8f74-4139-80a3-7a1459593f48"
 
   tags = {
     namespace = "news"
   }
 
-  depends_on = [module.news_backend_cicd]
+  depends_on = [module.backend]
 }
 
 # ACM Certificate and Route 53 for frontend domain
@@ -187,7 +188,7 @@ module "news_frontend_cicd" {
   github_repo   = "newsapp-frontend"
   github_branch = "main"
 
-  codestar_connection_arn = module.news_backend_cicd.codestar_connection_arn
+  codestar_connection_arn = "arn:aws:codeconnections:us-east-1:299295683679:connection/dcb07804-8f74-4139-80a3-7a1459593f48"
 
   frontend_bucket_name        = module.news_frontend.frontend_bucket_name
   frontend_bucket_arn         = module.news_frontend.frontend_bucket_arn
