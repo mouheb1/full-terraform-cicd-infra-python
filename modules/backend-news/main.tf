@@ -188,6 +188,13 @@ resource "aws_instance" "backend" {
     encrypted   = false # Remove encryption to save costs on free tier
   }
 
+  # Prevent instance replacement when user_data or AMI changes
+  # user_data changes should be applied manually via SSH
+  # AMI updates should be done intentionally with instance refresh
+  lifecycle {
+    ignore_changes = [user_data_base64, ami]
+  }
+
   tags = merge(local.tags, {
     Name = "${var.namespace}-${var.environment}-backend"
     App  = "backend"

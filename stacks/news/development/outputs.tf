@@ -74,6 +74,17 @@ output "news_collector_codepipeline_name" {
   value       = module.news_collector_cicd.codepipeline_name
 }
 
+# CI/CD outputs for newsapp-agentic-ai
+output "news_agentic_ecr_repository_url" {
+  description = "URL of the ECR repository for newsapp-agentic-ai"
+  value       = module.news_agentic_cicd.ecr_repository_url
+}
+
+output "news_agentic_codepipeline_name" {
+  description = "Name of the CodePipeline for newsapp-agentic-ai"
+  value       = module.news_agentic_cicd.codepipeline_name
+}
+
 # Frontend outputs
 output "frontend_website_url" {
   description = "URL of the React application"

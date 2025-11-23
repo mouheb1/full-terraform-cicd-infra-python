@@ -81,6 +81,10 @@ module "backend" {
     {
       name = "newsapp-collector"
       path = "/opt/news-collector"
+    },
+    {
+      name = "newsapp-agentic-ai"
+      path = "/opt/news-agentic"
     }
   ]
 
@@ -125,6 +129,29 @@ module "news_collector_cicd" {
 
   github_owner  = "sabeel-it-consulting"
   github_repo   = "newsapp-collector"
+  github_branch = "main"
+
+  backend_instance_id        = module.backend.instance_id
+  create_codestar_connection = false  # Use predefined connection
+  codestar_connection_arn    = "arn:aws:codeconnections:us-east-1:299295683679:connection/dcb07804-8f74-4139-80a3-7a1459593f48"
+
+  tags = {
+    namespace = "news"
+  }
+
+  depends_on = [module.backend]
+}
+
+# CI/CD for newsapp-agentic-ai (AI Agent Service) - Uses predefined CodeStar connection
+module "news_agentic_cicd" {
+  source           = "../../../modules/cicd"
+  environment      = "dev"
+  namespace        = "news"
+  backend_name     = "newsapp-agentic-ai"
+  application_port = 0  # Background service, no port
+
+  github_owner  = "sabeel-it-consulting"
+  github_repo   = "newsapp-agentic-ai"
   github_branch = "main"
 
   backend_instance_id        = module.backend.instance_id
